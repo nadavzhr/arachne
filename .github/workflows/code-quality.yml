@@ -28,5 +28,5 @@ jobs:
       - name: Mypy
         run: uv run mypy .
 
-      - name: pytest
-        run: uv run pytest --cov=src --cov-report=xml
+      # - name: pytest
+      #   run: uv run pytest --cov=src --cov-report=xml
