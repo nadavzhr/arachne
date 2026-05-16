@@ -1,0 +1,55 @@
+microsoft:
+  enabled: true
+  url: https://apply.careers.microsoft.com/api/pcsx/search
+  params:
+    domain: microsoft.com
+    query: software engineer
+    location: Israel
+    start: "0"
+    filter_include_remote: "1"
+    hl: en
+  headers: {}
+  output_path: data/microsoft/jobs.json
+  filters:
+    include_keywords: ["software", "engineer"]
+    exclude_keywords: ["intern", "contract", "senior"]
+    locations: ["Israel", "Remote"]
+
+nvidia:
+  enabled: true
+  url: https://jobs.nvidia.com/api/pcsx/search
+  params:
+    domain: nvidia.com
+    query: software engineer
+    location: Israel
+    start: "0"
+    filter_include_remote: "1"
+    filter_job_category: engineering
+    filter_job_type: regular employee
+    filter_time_type: full time
+  headers: {}
+  output_path: data/nvidia/jobs.json
+  filters:
+    include_keywords: ["software", "engineer"]
+    exclude_keywords: ["intern", "contract", "senior"]
+    locations: ["Israel", "Remote"]
+
+amazon:
+  enabled: true
+  url: https://www.amazon.jobs/en/search.json
+  params:
+    category[]: software-development
+    schedule_type_id[]: Full-Time
+    normalized_country_code[]: ISR
+    industry_experience[]: one_to_three_years
+    is_manager[]: "0"
+    loc_query: Israel
+    result_limit: "100"
+    offset: "0"
+    sort: relevant
+  headers: {}
+  output_path: data/amazon/jobs.json
+  filters:
+    include_keywords: ["software", "engineer"]
+    exclude_keywords: ["intern", "contract", "senior"]
+    locations: ["Israel", "Remote"]
