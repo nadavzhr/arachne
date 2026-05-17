@@ -71,7 +71,7 @@ class GoogleSource(PlaywrightSource):
             await self._launch_browser()
 
             assert self.page is not None, "Page not initialized"
-            print(f"Opening Google Careers...")
+            print("Opening Google Careers...")
             await self.page.goto(SEARCH_URL, wait_until="load")
 
             try:

@@ -16,8 +16,9 @@ from arachne.models.job import JobPosting
 from arachne.sources.playwright import PlaywrightSource
 from arachne.utils.normalization import normalize_records
 
-
-APPLE_SEARCH_URL = "https://jobs.apple.com/en-il/search?location=israel-ISR&key=software%2520engineer"
+APPLE_SEARCH_URL = (
+    "https://jobs.apple.com/en-il/search?location=israel-ISR&key=software%2520engineer"
+)
 APPLE_API_URL = "https://jobs.apple.com/api/v1/search"
 APPLE_CSRF_URL = "https://jobs.apple.com/api/v1/CSRFToken"
 
@@ -40,7 +41,7 @@ class AppleSource(PlaywrightSource):
     ) -> dict[str, Any]:
         """Execute HTTP request from within browser context via JavaScript."""
         assert self.page is not None, "Page not initialized"
-        return await self.page.evaluate(
+        result = await self.page.evaluate(
             """async ({ url, options }) => {
                 const response = await fetch(url, options);
                 const text = await response.text();
@@ -59,6 +60,7 @@ class AppleSource(PlaywrightSource):
             }""",
             {"url": url, "options": options},
         )
+        return cast(dict[str, Any], result)
 
     async def _get_csrf_token(self) -> str | None:
         """Fetch CSRF token from Apple API."""
@@ -70,7 +72,8 @@ class AppleSource(PlaywrightSource):
                 "headers": {"accept": "*/*"},
             },
         )
-        token = result["headers"].get("x-apple-csrf-token")
+        token_value = result.get("headers", {}).get("x-apple-csrf-token")
+        token: str | None = cast(str | None, token_value)
         print(f"CSRF token: {token}")
         return token
 
@@ -199,11 +202,7 @@ class AppleSource(PlaywrightSource):
 
                 # Track unique IDs
                 for item in results:
-                    identifier = (
-                        item.get("reqId")
-                        or item.get("id")
-                        or item.get("positionId")
-                    )
+                    identifier = item.get("reqId") or item.get("id") or item.get("positionId")
                     if isinstance(identifier, str):
                         seen_ids.add(identifier)
 
@@ -224,8 +223,7 @@ class AppleSource(PlaywrightSource):
                 "pages": page_dumps,
                 "unique_job_identifiers": len(seen_ids),
                 "total_jobs_collected": sum(
-                    len(self._extract_results(page_dump["response"]))
-                    for page_dump in page_dumps
+                    len(self._extract_results(page_dump["response"])) for page_dump in page_dumps
                 ),
             }
 
@@ -247,8 +245,7 @@ class AppleSource(PlaywrightSource):
         if not isinstance(search_results_value, list):
             return []
 
-        search_results = cast(list[Any], search_results_value)
-        return [item for item in search_results if isinstance(item, dict)]
+        return [item for item in search_results_value if isinstance(item, dict)]
 
     def _job_key(self, job: dict[str, Any]) -> str | None:
         """Extract unique job identifier."""
@@ -276,7 +273,7 @@ class AppleSource(PlaywrightSource):
             return []
 
         locations: list[str] = []
-        for location_value in cast(list[Any], raw_locations_value):
+        for location_value in raw_locations_value:
             if not isinstance(location_value, dict):
                 continue
 
@@ -290,13 +287,13 @@ class AppleSource(PlaywrightSource):
     def _build_job_record(self, job: dict[str, Any], fallback_key: str) -> dict[str, Any]:
         """Transform raw API job record into normalized format matching normalization keys."""
         req_id = self._job_key(job) or fallback_key
-        
+
         # Use postingTitle for the actual job title
         title = str(job.get("postingTitle") or "")
-        
+
         # Use transformedPostingTitle (slug) for the URL
         title_slug = str(job.get("transformedPostingTitle") or job.get("postingTitle") or "")
-        
+
         team_code = None
         team_value = job.get("team")
         if isinstance(team_value, dict):
@@ -324,27 +321,27 @@ class AppleSource(PlaywrightSource):
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         """Convert raw API job records into JobPosting models.
-        
+
         Processes paginated API responses: extracts jobs, deduplicates,
         transforms via _build_job_record, then normalizes to JobPosting models.
         """
         if not isinstance(raw, list):
             return []
-        
+
         # raw is the page_dumps list from fetch()
         # Each item has: {"page": int, "request": dict, "status": int, "response": dict}
-        
+
         # Aggregate jobs across pages
         aggregated = self._aggregate_jobs(raw)
         if not aggregated:
             return []
-        
+
         # Transform each job and normalize
         transformed: list[dict[str, Any]] = []
         for job_key, job in aggregated.items():
             record = self._build_job_record(job, job_key)
             transformed.append(record)
-        
+
         # Use generic normalization to create JobPosting models
         return normalize_records("apple", transformed)
 
