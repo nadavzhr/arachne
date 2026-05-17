@@ -53,3 +53,25 @@ amazon:
     include_keywords: ["software", "engineer"]
     exclude_keywords: ["intern", "contract", "senior"]
     locations: ["Israel", "Remote"]
+
+google:
+  enabled: true
+  url: https://www.google.com/about/careers/applications/jobs/results?location=Israel&target_level=EARLY&employment_type=FULL_TIME
+  params: {}
+  headers: {}
+  output_path: data/google/jobs.json
+  filters:
+    include_keywords: ["software", "engineer"]
+    exclude_keywords: ["intern", "contract", "senior"]
+    locations: ["Israel", "Remote"]
+
+apple:
+  enabled: true
+  url: https://jobs.apple.com/en-il/search?location=israel-ISR&key=software%20engineer
+  params: {}
+  headers: {}
+  output_path: data/apple/jobs.json
+  filters:
+    include_keywords: ["software", "engineer"]
+    exclude_keywords: ["intern", "contract", "senior"]
+    locations: ["Israel", "Remote"]
