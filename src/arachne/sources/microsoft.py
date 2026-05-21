@@ -13,6 +13,7 @@ from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.params import MicrosoftParams
 from arachne.sources.base import Source as BaseSource
 from arachne.sources.http_json import fetch as _http_fetch
 from arachne.utils.normalization import build_url, normalize_records
@@ -21,9 +22,11 @@ from arachne.utils.normalization import build_url, normalize_records
 class MicrosoftSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
+        self.params = MicrosoftParams(**(cfg.params or {}))
 
     async def fetch(self, client: AsyncClient) -> Any:
-        return await _http_fetch(self.cfg, client)
+        request_cfg = self.cfg.model_copy(update={"params": self.params.to_query()})
+        return await _http_fetch(request_cfg, client)
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         items = raw

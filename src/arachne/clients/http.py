@@ -15,7 +15,7 @@ def create_client(timeout_seconds: float = DEFAULT_TIMEOUT) -> httpx.AsyncClient
 async def fetch_json(
     client: httpx.AsyncClient,
     url: str,
-    params: Mapping[str, str | int | float | bool | None] | None = None,
+    params: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> Any:
     resp = await client.get(url, params=params or None, headers=headers or None)

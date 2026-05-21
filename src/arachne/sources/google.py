@@ -15,12 +15,12 @@ from playwright.async_api import Locator
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.params import GoogleParams, build_query_string
 from arachne.sources.playwright import PlaywrightSource
 from arachne.utils.normalization import normalize_records
 
 # Configuration Constants
 BASE_URL = "https://www.google.com/about/careers/applications/"
-SEARCH_URL = f"{BASE_URL}jobs/results?location=Israel&target_level=EARLY&employment_type=FULL_TIME"
 DEFAULT_TIMEOUT_MS = 10000
 
 # String Cleansing Constants
@@ -37,6 +37,10 @@ class GoogleSource(PlaywrightSource):
 
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
+        self.params = GoogleParams(**(cfg.params or {}))
+
+    def _build_search_url(self) -> str:
+        return f"{BASE_URL}jobs/results?{build_query_string(self.params.to_query())}"
 
     async def _parse_job_card(self, card: Locator) -> dict[str, str]:
         """Extract details cleanly from a single job card element."""
@@ -71,8 +75,9 @@ class GoogleSource(PlaywrightSource):
             await self._launch_browser()
 
             assert self.page is not None, "Page not initialized"
+            search_url = self._build_search_url()
             print("Opening Google Careers...")
-            await self.page.goto(SEARCH_URL, wait_until="load")
+            await self.page.goto(search_url, wait_until="load")
 
             try:
                 await self.page.wait_for_selector("li:has(h3)", timeout=DEFAULT_TIMEOUT_MS)

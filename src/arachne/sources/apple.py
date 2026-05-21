@@ -8,17 +8,17 @@ from __future__ import annotations
 
 import json
 from typing import Any, cast
+from urllib.parse import quote
 
 from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.params import AppleParams
 from arachne.sources.playwright import PlaywrightSource
 from arachne.utils.normalization import normalize_records
 
-APPLE_SEARCH_URL = (
-    "https://jobs.apple.com/en-il/search?location=israel-ISR&key=software%2520engineer"
-)
+APPLE_SEARCH_BASE_URL = "https://jobs.apple.com"
 APPLE_API_URL = "https://jobs.apple.com/api/v1/search"
 APPLE_CSRF_URL = "https://jobs.apple.com/api/v1/CSRFToken"
 
@@ -32,7 +32,15 @@ class AppleSource(PlaywrightSource):
 
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
+        self.params = AppleParams(**(cfg.params or {}))
         self.raw_data: dict[str, Any] = {}  # Store raw response for later output
+
+    def _build_search_url(self) -> str:
+        location = "+".join(quote(item, safe="") for item in self.params.location)
+        key = quote(quote(self.params.key, safe=""), safe="")
+        return (
+            f"{APPLE_SEARCH_BASE_URL}/{self.params.language}/search?location={location}&key={key}"
+        )
 
     async def _fetch_json_from_page(
         self,
@@ -41,8 +49,10 @@ class AppleSource(PlaywrightSource):
     ) -> dict[str, Any]:
         """Execute HTTP request from within browser context via JavaScript."""
         assert self.page is not None, "Page not initialized"
-        result = await self.page.evaluate(
-            """async ({ url, options }) => {
+        result: dict[str, Any] = cast(
+            dict[str, Any],
+            await self.page.evaluate(
+                """async ({ url, options }) => {
                 const response = await fetch(url, options);
                 const text = await response.text();
                 let data;
@@ -58,9 +68,10 @@ class AppleSource(PlaywrightSource):
                   data,
                 };
             }""",
-            {"url": url, "options": options},
+                {"url": url, "options": options},
+            ),
         )
-        return cast(dict[str, Any], result)
+        return result
 
     async def _get_csrf_token(self) -> str | None:
         """Fetch CSRF token from Apple API."""
@@ -72,7 +83,12 @@ class AppleSource(PlaywrightSource):
                 "headers": {"accept": "*/*"},
             },
         )
-        token_value = result.get("headers", {}).get("x-apple-csrf-token")
+        headers_value = result.get("headers", {})
+        if isinstance(headers_value, dict):
+            headers = cast(dict[str, Any], headers_value)
+        else:
+            headers = {}
+        token_value = headers.get("x-apple-csrf-token")
         token: str | None = cast(str | None, token_value)
         print(f"CSRF token: {token}")
         return token
@@ -114,7 +130,7 @@ class AppleSource(PlaywrightSource):
                 return locator
         return None
 
-    async def _capture_ui_search_request(self) -> dict[str, Any] | None:
+    async def _capture_ui_search_request(self, search_query: str) -> dict[str, Any] | None:
         """Trigger a search via the UI and capture the POST payload."""
         assert self.page is not None, "Page not initialized"
         request_data: dict[str, Any] | None = None
@@ -136,7 +152,7 @@ class AppleSource(PlaywrightSource):
             return None
 
         print("Filling search input and pressing Enter...")
-        await search_input.fill("software engineer")
+        await search_input.fill(search_query)
         await search_input.press("Enter")
         await self.page.wait_for_timeout(7000)
         return request_data
@@ -147,12 +163,13 @@ class AppleSource(PlaywrightSource):
             await self._launch_browser()
             assert self.page is not None, "Page not initialized"
 
-            print(f"Opening {APPLE_SEARCH_URL}")
-            await self.page.goto(APPLE_SEARCH_URL, wait_until="domcontentloaded")
+            search_url = self._build_search_url()
+            print(f"Opening {search_url}")
+            await self.page.goto(search_url, wait_until="domcontentloaded")
 
             csrf_token = await self._get_csrf_token()
 
-            ui_request = await self._capture_ui_search_request()
+            ui_request = await self._capture_ui_search_request(self.params.key)
             if ui_request is None or not ui_request.get("post_data"):
                 print("Could not capture search request from UI.")
                 return []
@@ -213,7 +230,7 @@ class AppleSource(PlaywrightSource):
 
             # Store raw data for external access (e.g., writing to file)
             self.raw_data = {
-                "search_url": APPLE_SEARCH_URL,
+                "search_url": search_url,
                 "csrf_token": csrf_token,
                 "captured_request": {
                     "url": ui_request.get("url"),

@@ -13,6 +13,7 @@ from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.params import AmazonParams
 from arachne.sources.base import Source as BaseSource
 from arachne.sources.http_json import fetch as _http_fetch
 from arachne.utils.normalization import build_url, normalize_records, try_parse_json_string
@@ -21,9 +22,11 @@ from arachne.utils.normalization import build_url, normalize_records, try_parse_
 class AmazonSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
+        self.params = AmazonParams(**(cfg.params or {}))
 
     async def fetch(self, client: AsyncClient) -> Any:
-        return await _http_fetch(self.cfg, client)
+        request_cfg = self.cfg.model_copy(update={"params": self.params.to_query()})
+        return await _http_fetch(request_cfg, client)
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         # raw is expected to be {'jobs': [...] } or a list
@@ -54,13 +57,13 @@ class AmazonSource(BaseSource):
         for rec in items:
             if not isinstance(rec, dict):
                 continue
-            # prefer explicit url_next_step
-            if rec.get("url_next_step"):
-                rec["url"] = rec.get("url_next_step")
-            elif rec.get("job_path"):
+            # prefer the canonical job detail path when available
+            if rec.get("job_path"):
                 u = build_url(base, rec.get("job_path"))
                 if u:
                     rec["url"] = u
+            elif rec.get("url_next_step"):
+                rec["url"] = rec.get("url_next_step")
 
             # parse locations that are JSON-encoded strings
             locs = rec.get("locations")

@@ -51,14 +51,14 @@ async def run_from_config(config_dir: Path) -> None:
             except Exception as exc:
                 logger.error("Normalization failed for %s: %s", name, exc)
                 jobs = []
+            payload: list[object] = []
             if jobs:
                 # Persist normalized records as JSON-serializable dicts
-                payload: list[object] = [j.model_dump(mode="json") for j in jobs]
+                payload = [j.model_dump(mode="json") for j in jobs]
             else:
                 # Normalization produced no valid items; persist raw payload so
                 # consumers can inspect and we don't produce empty snapshots.
-                logger.warning("No normalized jobs for %s; saving raw payload instead", name)
-                payload = result if isinstance(result, list) else [result]
+                logger.warning(f"No normalized jobs for {name}")
 
             storage.save(name, payload)
             logger.info("Wrote snapshot for %s", name)

@@ -8,6 +8,10 @@ microsoft:
     start: "0"
     filter_include_remote: "1"
     hl: en
+    sort_by: relevance
+    filter_profession: software engineering
+    filter_seniority:
+      - Entry
   headers: {}
   output_path: data/microsoft/jobs.json
   filters:
@@ -20,13 +24,14 @@ nvidia:
   url: https://jobs.nvidia.com/api/pcsx/search
   params:
     domain: nvidia.com
-    query: software engineer
+    query: software engineering
     location: Israel
     start: "0"
     filter_include_remote: "1"
     filter_job_category: engineering
     filter_job_type: regular employee
     filter_time_type: full time
+    sort_by: relevance
   headers: {}
   output_path: data/nvidia/jobs.json
   filters:
@@ -38,11 +43,14 @@ amazon:
   enabled: true
   url: https://www.amazon.jobs/en/search.json
   params:
-    category[]: software-development
-    schedule_type_id[]: Full-Time
-    normalized_country_code[]: ISR
-    industry_experience[]: one_to_three_years
-    is_manager[]: "0"
+    category:
+      - software-development
+    schedule_type_id:
+      - Full-Time
+    normalized_country_code:
+      - ISR
+    industry_experience:
+      - one_to_three_years
     loc_query: Israel
     result_limit: "100"
     offset: "0"
@@ -56,8 +64,15 @@ amazon:
 
 google:
   enabled: true
-  url: https://www.google.com/about/careers/applications/jobs/results?location=Israel&target_level=EARLY&employment_type=FULL_TIME
-  params: {}
+  url: https://www.google.com/about/careers/applications/jobs/results
+  params:
+    location:
+      - Israel
+      - Haifa, Israel
+      - Tel Aviv, Israel
+    target_level:
+      - EARLY
+    employment_type: FULL_TIME
   headers: {}
   output_path: data/google/jobs.json
   filters:
@@ -67,8 +82,12 @@ google:
 
 apple:
   enabled: true
-  url: https://jobs.apple.com/en-il/search?location=israel-ISR&key=software%20engineer
-  params: {}
+  url: https://jobs.apple.com/en-il/search
+  params:
+    location:
+      - israel-ISR
+    key: software engineer
+    language: en-il
   headers: {}
   output_path: data/apple/jobs.json
   filters:

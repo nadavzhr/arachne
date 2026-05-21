@@ -1,15 +1,12 @@
 # TODO
-* Refactor Google's crawler.
 
-* Look into Apple - probably playwright as well (consider a PlaywrightCrawler class),
-as it may be useful for more than one source.
-
+* Paginate Google
+* Paginate Nvidia
+* Fix Amazon results (currently return 95 which is way higher than what I see manually (59))
 * Look into Meta's GraphQL.
 
+* Clean up..
 * Trim the base crawler model to only include shared (and relevant) fields.
 
 * Consider renaming "Sources" to "Crawlers" or "Spiders".
 
-* Clean up..
-
-* Write some unit tests.
