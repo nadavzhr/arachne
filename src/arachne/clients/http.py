@@ -8,8 +8,16 @@ import httpx
 DEFAULT_TIMEOUT = 30.0
 
 
-def create_client(timeout_seconds: float = DEFAULT_TIMEOUT) -> httpx.AsyncClient:
-    return httpx.AsyncClient(follow_redirects=True, timeout=timeout_seconds)
+def create_client(
+    timeout_seconds: float = DEFAULT_TIMEOUT,
+    user_agent: str | None = None,
+) -> httpx.AsyncClient:
+    headers = {"User-Agent": user_agent} if user_agent else None
+    return httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=timeout_seconds,
+        headers=headers,
+    )
 
 
 async def fetch_json(

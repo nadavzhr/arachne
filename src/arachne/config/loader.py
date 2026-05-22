@@ -28,8 +28,8 @@ class SourceConfig(BaseModel):
     url: str
     params: dict[str, Any] | None = None
     headers: dict[str, str] | None = None
-    output_path: str | None = None
     apply_base: str | None = None
+    user_agent: str | None = None
     filters: Filters = Filters()
 
 
@@ -42,18 +42,17 @@ def load_sources(path: Path, global_cfg: GlobalConfig | None = None) -> dict[str
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     result: dict[str, SourceConfig] = {}
     for name, raw in data.items():
-        # Merge global defaults into source raw config
-        merged = dict(global_cfg.dict()) if global_cfg is not None else {}
-        # Remove 'filters' from merged because we'll merge separately
-        merged_filters = merged.pop("filters", {}) if merged else {}
         source_raw = dict(raw or {})
         source_filters = source_raw.pop("filters", {}) or {}
-        # Combine filters: global defaults overridden by per-source
+        merged_filters: dict[str, Any] = {}
+        if global_cfg is not None:
+            merged_filters = global_cfg.filters.model_dump()
         combined_filters = {**merged_filters, **source_filters}
-        merged.update(source_raw)
         if combined_filters:
-            merged["filters"] = combined_filters
-        result[name] = SourceConfig(**merged)
+            source_raw["filters"] = combined_filters
+        if global_cfg is not None and "user_agent" not in source_raw:
+            source_raw["user_agent"] = global_cfg.user_agent
+        result[name] = SourceConfig(**source_raw)
     return result
 
 

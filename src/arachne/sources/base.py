@@ -4,6 +4,9 @@ Defines a small class-based interface each source should implement:
 - `fetch(client)` -> raw payload (any)
 - `normalize(raw)` -> list[JobPosting]
 
+Filtering is handled after normalization in the runner, so sources should not
+apply filtering inside `normalize`.
+
 Using classes keeps per-source `cfg` and helpers together and lets the runner
 always call the same two methods.
 """

@@ -13,7 +13,6 @@ microsoft:
     filter_seniority:
       - Entry
   headers: {}
-  output_path: data/microsoft/jobs.json
   filters:
     include_keywords: ["software", "engineer"]
     exclude_keywords: ["intern", "contract", "senior"]
@@ -33,7 +32,6 @@ nvidia:
     filter_time_type: full time
     sort_by: relevance
   headers: {}
-  output_path: data/nvidia/jobs.json
   filters:
     include_keywords: ["software", "engineer"]
     exclude_keywords: ["intern", "contract", "senior"]
@@ -56,7 +54,6 @@ amazon:
     offset: "0"
     sort: relevant
   headers: {}
-  output_path: data/amazon/jobs.json
   filters:
     include_keywords: ["software", "engineer"]
     exclude_keywords: ["intern", "contract", "senior"]
@@ -74,7 +71,6 @@ google:
       - EARLY
     employment_type: FULL_TIME
   headers: {}
-  output_path: data/google/jobs.json
   filters:
     include_keywords: ["software", "engineer"]
     exclude_keywords: ["intern", "contract", "senior"]
@@ -89,7 +85,6 @@ apple:
     key: software engineer
     language: en-il
   headers: {}
-  output_path: data/apple/jobs.json
   filters:
     include_keywords: ["software", "engineer"]
     exclude_keywords: ["intern", "contract", "senior"]

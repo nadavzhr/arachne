@@ -9,10 +9,10 @@ class JsonFileJobStorage:
     def __init__(self, root: Path) -> None:
         self.root = root
 
-    def save(self, source: str, payload: Sequence[object]) -> Path:
+    def save(self, source: str, payload: Sequence[object], filename: str = "jobs.json") -> Path:
         target_dir = self.root / source
         target_dir.mkdir(parents=True, exist_ok=True)
-        target_file = target_dir / "jobs.json"
+        target_file = target_dir / filename
         target_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         return target_file
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, cast
 from urllib.parse import parse_qs
 
@@ -122,7 +122,7 @@ class MetaSource(PlaywrightSource):
             async with self.page.expect_response(predicate, timeout=timeout_ms) as response_info:
                 await self._trigger_search()
             return await response_info.value
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
     async def _capture_graphql_payload(self) -> dict[str, Any] | None:
@@ -243,9 +243,7 @@ class MetaSource(PlaywrightSource):
         doc_id: str,
         variables: dict[str, Any],
     ) -> dict[str, str | float | bool]:
-        payload: dict[str, str | float | bool] = {
-            key: value for key, value in base_payload.items()
-        }
+        payload: dict[str, str | float | bool] = {key: value for key, value in base_payload.items()}
         payload.setdefault("av", "0")
         payload.setdefault("__user", "0")
         payload.setdefault("__a", "1")
@@ -274,10 +272,7 @@ class MetaSource(PlaywrightSource):
                     if payloads:
                         return payloads
                     if captured.get("status"):
-                        print(
-                            "Meta search response status: "
-                            f"{captured.get('status')}"
-                        )
+                        print(f"Meta search response status: {captured.get('status')}")
 
                 lsd_token = parsed_payload.get("lsd")
                 variables = self._merge_variables(parsed_payload.get("variables"))
@@ -318,14 +313,9 @@ class MetaSource(PlaywrightSource):
     def normalize(self, raw: Any) -> list[JobPosting]:
         if not isinstance(raw, list):
             return []
-        items = cast(list[Any], raw)
-        payloads = [
-            cast(dict[str, Any], item)
-            for item in items
-            if isinstance(item, dict)
-        ]
+        items = raw
+        payloads = [cast(dict[str, Any], item) for item in items if isinstance(item, dict)]
         records = self._extract_jobs(payloads)
-        records = self._filter_by_location(records)
         return normalize_records("meta", records)
 
     def _extract_jobs(self, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -367,7 +357,7 @@ class MetaSource(PlaywrightSource):
 
     def _normalize_job_container(self, node: Any) -> list[dict[str, Any]]:
         if isinstance(node, list):
-            return self._flatten_edges(cast(list[Any], node))
+            return self._flatten_edges(node)
         if isinstance(node, dict):
             node_map = cast(dict[str, Any], node)
             for key in ("jobs", "results", "nodes", "edges"):
@@ -399,11 +389,9 @@ class MetaSource(PlaywrightSource):
             if not isinstance(value, list):
                 return
 
-            value_list = cast(list[Any], value)
+            value_list = value
             dict_items = [
-                cast(dict[str, Any], item)
-                for item in value_list
-                if isinstance(item, dict)
+                cast(dict[str, Any], item) for item in value_list if isinstance(item, dict)
             ]
             if dict_items:
                 score = sum(1 for item in dict_items if self._is_job_item(item))
@@ -469,7 +457,7 @@ class MetaSource(PlaywrightSource):
             return None
         if isinstance(value, list):
             names: list[str] = []
-            value_list = cast(list[Any], value)
+            value_list = value
             for item in value_list:
                 if isinstance(item, str) and item.strip():
                     names.append(item.strip())
@@ -489,7 +477,7 @@ class MetaSource(PlaywrightSource):
             ts = float(value)
             if ts > 1_000_000_000_000:
                 ts = ts / 1000
-            return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(ts, tz=UTC).isoformat()
         if isinstance(value, str) and value.strip():
             return value.strip()
         return None
@@ -519,27 +507,6 @@ class MetaSource(PlaywrightSource):
             seen.add(key)
             unique.append(record)
         return unique
-
-    def _filter_by_location(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        targets = []
-        if self.cfg.filters.locations:
-            targets = [t for t in self.cfg.filters.locations if t]
-        elif self.params.offices:
-            targets = [t for t in self.params.offices if t]
-
-        if not targets:
-            return records
-
-        target_tokens = [t.lower() for t in targets]
-        filtered: list[dict[str, Any]] = []
-        for record in records:
-            location = record.get("location")
-            if not isinstance(location, str):
-                continue
-            loc_value = location.lower()
-            if any(token in loc_value for token in target_tokens):
-                filtered.append(record)
-        return filtered
 
 
 async def _run_demo() -> None:

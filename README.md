@@ -63,7 +63,8 @@ python3 src/arcachne/runner.py
   runner writes:
 
   * `{data_dir}/{source}/raw.json` — raw fetched payloads
-  * `{data_dir}/{source}/jobs.json` — normalized job snapshots
+  * `{data_dir}/{source}/jobs.unfiltered.json` — normalized job snapshots (unfiltered)
+  * `{data_dir}/{source}/jobs.json` — normalized job snapshots after filters
 
 ## Supported providers
 

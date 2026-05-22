@@ -36,12 +36,13 @@ class PlaywrightSource(BaseSource):
             headless=True,
             args=["--disable-blink-features=AutomationControlled"],
         )
+        user_agent = self.cfg.user_agent or (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        )
         self.context = await self.browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/122.0.0.0 Safari/537.36"
-            ),
+            user_agent=user_agent,
         )
         self.page = await self.context.new_page()
 

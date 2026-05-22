@@ -1,367 +1,314 @@
-"""Apple Careers source implementation using Playwright API replay.
-
-Captures the UI-triggered search request from Apple Careers and replays it
-against the search API. Handles pagination and deduplication across pages.
-"""
+"""Apple Careers source — public search API implementation."""
 
 from __future__ import annotations
 
 import json
-from typing import Any, cast
-from urllib.parse import quote
+import logging
+import urllib.parse
+from pathlib import Path
+from typing import TypedDict
 
-from httpx import AsyncClient
+import httpx
+from pydantic import BaseModel, Field
 
-from arachne.config.loader import SourceConfig
-from arachne.models.job import JobPosting
-from arachne.models.params import AppleParams
-from arachne.sources.playwright import PlaywrightSource
-from arachne.utils.normalization import normalize_records
+import arachne.config.loader
+import arachne.models.job
+import arachne.models.params
+import arachne.sources.base
+import arachne.utils.normalization
+from arachne.utils.type_casts import as_dict, as_list
 
-APPLE_SEARCH_BASE_URL = "https://jobs.apple.com"
-APPLE_API_URL = "https://jobs.apple.com/api/v1/search"
-APPLE_CSRF_URL = "https://jobs.apple.com/api/v1/CSRFToken"
+_BASE_URL = "https://jobs.apple.com"
+_API_URL = f"{_BASE_URL}/api/v1/search"
+_CSRF_URL = f"{_BASE_URL}/api/v1/CSRFToken"
+_DATE_FORMAT = {"longDate": "MMMM D, YYYY", "mediumDate": "MMM D, YYYY"}
+_PAGE_SIZE = 20
+_MAX_PAGES = 10_000
+_DEFAULT_LOCALE = "en_US"
+
+logger = logging.getLogger(__name__)
 
 
-class AppleSource(PlaywrightSource):
-    """Scrape Apple Careers by replaying API requests from browser context.
+def _configure_logging() -> None:
+    if logger.handlers or logging.getLogger().handlers:
+        return
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
-    Captures the CSRF token and the actual POST payload sent by the UI,
-    then replays search requests with pagination to collect all jobs.
-    """
 
-    def __init__(self, cfg: SourceConfig) -> None:
+_configure_logging()
+
+
+# ---------------------------------------------------------------------------
+# API payload / dump shapes
+# ---------------------------------------------------------------------------
+
+
+class _SearchFilters(TypedDict, total=False):
+    keywords: list[str]
+    locations: list[str]
+
+
+class _SearchPayload(TypedDict):
+    query: str
+    filters: _SearchFilters
+    page: int
+    locale: str
+    sort: str
+    format: dict[str, str]
+
+
+class _PageDump(TypedDict):
+    page: int
+    request: _SearchPayload
+    status: int
+    response: object  # raw JSON — unknown shape until validated
+
+
+# ---------------------------------------------------------------------------
+# Response models
+# ---------------------------------------------------------------------------
+
+
+class _Location(BaseModel):
+    name: str | None = None
+
+
+class _Team(BaseModel):
+    teamCode: str | None = None
+
+
+class _SearchResult(BaseModel):
+    reqId: str | None = None
+    id: str | None = None
+    positionId: str | None = None
+    jobPositionId: str | None = None
+    postingTitle: str | None = None
+    transformedPostingTitle: str | None = None
+    team: _Team | None = None
+    locations: list[_Location] = Field(default_factory=list[_Location])
+    jobSummary: str | None = None
+    postingDate: str | None = None
+    postDateInGMT: str | None = None
+
+    @property
+    def best_id(self) -> str | None:
+        return self.reqId or self.id or self.positionId or self.jobPositionId
+
+    @property
+    def first_location(self) -> str | None:
+        return next(
+            (loc.name.strip() for loc in self.locations if loc.name and loc.name.strip()),
+            None,
+        )
+
+    def build_url(self, language: str, base_url: str = _BASE_URL) -> str:
+        slug = (self.transformedPostingTitle or self.postingTitle or "").strip()
+        url = f"{base_url}/{language}/details/{self.best_id}/{slug}"
+        if self.team and self.team.teamCode:
+            url += f"?team={self.team.teamCode}"
+        return url
+
+
+# ---------------------------------------------------------------------------
+# Parsed job record (intermediate, pre-normalization)
+# ---------------------------------------------------------------------------
+
+
+class _JobRecord(TypedDict):
+    id: str
+    title: str
+    url: str
+    location: str | None
+    description: str | None
+    posted_at: str | None
+
+
+# ---------------------------------------------------------------------------
+# Source
+# ---------------------------------------------------------------------------
+
+
+class AppleSource(arachne.sources.base.Source):
+    """Scrape Apple Careers via the public search API."""
+
+    def __init__(self, cfg: arachne.config.loader.SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = AppleParams(**(cfg.params or {}))
-        self.raw_data: dict[str, Any] = {}  # Store raw response for later output
+        self.params = arachne.models.params.AppleParams(**(cfg.params or {}))
 
-    def _build_search_url(self) -> str:
-        location = "+".join(quote(item, safe="") for item in self.params.location)
-        key = quote(quote(self.params.key, safe=""), safe="")
-        return (
-            f"{APPLE_SEARCH_BASE_URL}/{self.params.language}/search?location={location}&key={key}"
-        )
+    # region Public interface
 
-    async def _fetch_json_from_page(
-        self,
-        url: str,
-        options: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Execute HTTP request from within browser context via JavaScript."""
-        assert self.page is not None, "Page not initialized"
-        result: dict[str, Any] = cast(
-            dict[str, Any],
-            await self.page.evaluate(
-                """async ({ url, options }) => {
-                const response = await fetch(url, options);
-                const text = await response.text();
-                let data;
-                try {
-                  data = JSON.parse(text);
-                } catch {
-                  data = text;
-                }
-                return {
-                  ok: response.ok,
-                  status: response.status,
-                  headers: Object.fromEntries(response.headers.entries()),
-                  data,
-                };
-            }""",
-                {"url": url, "options": options},
-            ),
-        )
-        return result
+    async def fetch(self, client: httpx.AsyncClient) -> list[_PageDump]:
+        search_url = self._search_url()
+        logger.info(f"Opening {search_url}")
 
-    async def _get_csrf_token(self) -> str | None:
-        """Fetch CSRF token from Apple API."""
-        result = await self._fetch_json_from_page(
-            APPLE_CSRF_URL,
-            {
-                "method": "GET",
-                "credentials": "include",
-                "headers": {"accept": "*/*"},
-            },
-        )
-        headers_value = result.get("headers", {})
-        if isinstance(headers_value, dict):
-            headers = cast(dict[str, Any], headers_value)
-        else:
-            headers = {}
-        token_value = headers.get("x-apple-csrf-token")
-        token: str | None = cast(str | None, token_value)
-        print(f"CSRF token: {token}")
-        return token
+        csrf_token = await self._get_csrf_token(client)
+        filters = self._build_filters()
+        dumps: list[_PageDump] = []
 
-    async def _try_search(
-        self,
-        csrf_token: str | None,
-        payload: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Execute a single paginated search request."""
+        for page in range(1, _MAX_PAGES + 1):
+            logger.info(f"Fetching page {page}...")
+            payload = self._build_payload(page, filters)
+
+            resp = await client.post(
+                _API_URL,
+                json=payload,
+                headers=self._build_headers(search_url, csrf_token),
+            )
+            resp.raise_for_status()
+
+            try:
+                body = resp.json()
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"Failed to decode JSON response on page {page}. Response text: {resp.text}"
+                )
+                body = resp.text
+
+            dumps.append(
+                {"page": page, "request": payload, "status": resp.status_code, "response": body}
+            )
+
+            body_payload = as_dict(body)
+            if body_payload is None or self._has_api_error(body_payload):
+                logger.warning(f"Stopping: unexpected response or API error on page {page}.")
+                break
+
+            results = self._parse_results(body_payload)
+            logger.info(f"Jobs on page {page}: {len(results)}")
+
+            if len(results) < _PAGE_SIZE:
+                break
+
+        return dumps
+
+    def normalize(self, raw: object) -> list[arachne.models.job.JobPosting]:
+        raw_pages = as_list(raw)
+        if raw_pages is None:
+            return []
+
+        deduped: dict[str, _JobRecord] = {}
+
+        for page in raw_pages:
+            page_payload = as_dict(page)
+            if page_payload is None:
+                continue
+            for job in self._parse_results(page_payload.get("response", {})):
+                record = self._to_record(job, self.params.language)
+                if record is not None and record["id"] not in deduped:
+                    deduped[record["id"]] = record
+
+        return arachne.utils.normalization.normalize_records("apple", list(deduped.values()))
+
+    # region Parsing helpers
+
+    @staticmethod
+    def _parse_results(response_body: object) -> list[_SearchResult]:
+        payload = as_dict(response_body)
+        if payload is None:
+            return []
+        res_payload = as_dict(payload.get("res"))
+        if res_payload is None:
+            return []
+        items = as_list(res_payload.get("searchResults", []))
+        if items is None:
+            return []
+        return [_SearchResult.model_validate(item) for item in items if isinstance(item, dict)]
+
+    @staticmethod
+    def _to_record(job: _SearchResult, language: str) -> _JobRecord | None:
+        job_id = job.best_id
+        title = job.postingTitle
+        if not job_id or not title:
+            return None
+        return {
+            "id": job_id,
+            "title": title.strip(),
+            "url": job.build_url(language),
+            "location": job.first_location,
+            "description": job.jobSummary,
+            "posted_at": job.postingDate or job.postDateInGMT,
+        }
+
+    @staticmethod
+    def _has_api_error(body: object) -> bool:
+        payload = as_dict(body)
+        return payload is not None and payload.get("error") is not None
+
+    # --- Request helpers ---
+
+    def _search_url(self) -> str:
+        location = "+".join(urllib.parse.quote(item, safe="") for item in self.params.location)
+        key = urllib.parse.quote(urllib.parse.quote(self.params.key, safe=""), safe="")
+        return f"{_BASE_URL}/{self.params.language}/search?location={location}&key={key}"
+
+    def _build_filters(self) -> _SearchFilters:
+        locations = [self._normalize_location(v) for v in self.params.location if v]
+        filters: _SearchFilters = {}
+        if self.params.key:
+            filters["keywords"] = [self.params.key]
+        if locations:
+            filters["locations"] = locations
+        return filters
+
+    @staticmethod
+    def _normalize_location(value: str) -> str:
+        value = value.strip()
+        if value.startswith("postLocation-"):
+            return value
+        suffix = value.split("-")[-1].strip().upper()
+        return f"postLocation-{suffix}"
+
+    def _build_payload(self, page: int, filters: _SearchFilters) -> _SearchPayload:
+        return {
+            "query": self.params.key,
+            "filters": filters,
+            "page": page,
+            "locale": self.params.language,
+            "sort": "relevance",
+            "format": _DATE_FORMAT,
+        }
+
+    def _build_headers(self, referer: str, csrf_token: str | None) -> dict[str, str]:
         headers = {
             "accept": "*/*",
             "content-type": "application/json",
-            "browserlocale": "en-il",
-            "locale": "en_US",
+            "browserlocale": self.params.language,
+            "locale": _DEFAULT_LOCALE,
+            "origin": _BASE_URL,
+            "referer": referer,
         }
         if csrf_token:
             headers["x-apple-csrf-token"] = csrf_token
+        return headers
 
-        return await self._fetch_json_from_page(
-            APPLE_API_URL,
-            {
-                "method": "POST",
-                "credentials": "include",
-                "headers": headers,
-                "body": json.dumps(payload),
-            },
-        )
-
-    async def _find_search_input(self) -> Any:
-        """Locate the search input field on the page."""
-        assert self.page is not None, "Page not initialized"
-        for selector in (
-            'input[placeholder="Search by role or keyword"]',
-            'input[aria-label="Search by role or keyword"]',
-        ):
-            locator = self.page.locator(selector).first
-            if await locator.count():
-                return locator
-        return None
-
-    async def _capture_ui_search_request(self, search_query: str) -> dict[str, Any] | None:
-        """Trigger a search via the UI and capture the POST payload."""
-        assert self.page is not None, "Page not initialized"
-        request_data: dict[str, Any] | None = None
-
-        def on_request(request: Any) -> None:
-            nonlocal request_data
-            if request.url.startswith(APPLE_API_URL) and request.method == "POST":
-                request_data = {
-                    "url": request.url,
-                    "method": request.method,
-                    "post_data": request.post_data,
-                }
-
-        self.page.on("request", on_request)
-
-        search_input = await self._find_search_input()
-        if search_input is None:
-            print("Could not find search input.")
-            return None
-
-        print("Filling search input and pressing Enter...")
-        await search_input.fill(search_query)
-        await search_input.press("Enter")
-        await self.page.wait_for_timeout(7000)
-        return request_data
-
-    async def fetch(self, client: AsyncClient) -> list[dict[str, Any]]:
-        """Fetch all jobs by replaying paginated API requests."""
-        try:
-            await self._launch_browser()
-            assert self.page is not None, "Page not initialized"
-
-            search_url = self._build_search_url()
-            print(f"Opening {search_url}")
-            await self.page.goto(search_url, wait_until="domcontentloaded")
-
-            csrf_token = await self._get_csrf_token()
-
-            ui_request = await self._capture_ui_search_request(self.params.key)
-            if ui_request is None or not ui_request.get("post_data"):
-                print("Could not capture search request from UI.")
-                return []
-
-            # Parse the captured payload
-            try:
-                exact_payload = json.loads(ui_request["post_data"])
-            except json.JSONDecodeError:
-                print("Could not parse captured payload.")
-                return []
-
-            # Paginate through results
-            page_dumps: list[dict[str, Any]] = []
-            seen_ids: set[str] = set()
-            page_number = 1
-
-            while True:
-                payload = dict(exact_payload)
-                payload["page"] = page_number
-                print(f"Fetching page {page_number}...")
-
-                result = await self._try_search(csrf_token, payload)
-                page_dumps.append(
-                    {
-                        "page": page_number,
-                        "request": payload,
-                        "status": result["status"],
-                        "response": result["data"],
-                    }
-                )
-
-                if not isinstance(result["data"], dict):
-                    print(f"Unexpected response format on page {page_number}.")
-                    break
-
-                body = cast(dict[str, Any], result["data"])
-                if body.get("error") is not None:
-                    print(f"API error on page {page_number}.")
-                    break
-
-                # Extract jobs
-                results = self._extract_results(body)
-                print(f"Jobs on page {page_number}: {len(results)}")
-
-                if not results:
-                    break
-
-                # Track unique IDs
-                for item in results:
-                    identifier = item.get("reqId") or item.get("id") or item.get("positionId")
-                    if isinstance(identifier, str):
-                        seen_ids.add(identifier)
-
-                if len(results) < 20:
-                    break
-
-                page_number += 1
-
-            # Store raw data for external access (e.g., writing to file)
-            self.raw_data = {
-                "search_url": search_url,
-                "csrf_token": csrf_token,
-                "captured_request": {
-                    "url": ui_request.get("url"),
-                    "method": ui_request.get("method"),
-                    "post_data": exact_payload,
-                },
-                "pages": page_dumps,
-                "unique_job_identifiers": len(seen_ids),
-                "total_jobs_collected": sum(
-                    len(self._extract_results(page_dump["response"])) for page_dump in page_dumps
-                ),
-            }
-
-            # Return raw page dumps (raw data for fetch result)
-            return page_dumps
-
-        finally:
-            await self._close_browser()
-
-    def _extract_results(self, response_body: dict[str, Any] | None) -> list[dict[str, Any]]:
-        """Extract job listings from API response."""
-        if response_body is None:
-            return []
-        res_value = response_body.get("res")
-        if not isinstance(res_value, dict):
-            return []
-        res = cast(dict[str, Any], res_value)
-        search_results_value = res.get("searchResults")
-        if not isinstance(search_results_value, list):
-            return []
-
-        return [item for item in search_results_value if isinstance(item, dict)]
-
-    def _job_key(self, job: dict[str, Any]) -> str | None:
-        """Extract unique job identifier."""
-        for field in ("reqId", "id", "positionId", "jobPositionId"):
-            value = job.get(field)
-            if isinstance(value, str) and value:
-                return value
-        return None
-
-    def _aggregate_jobs(self, pages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-        """Deduplicate jobs across paginated results."""
-        aggregated: dict[str, dict[str, Any]] = {}
-        for page in pages:
-            for job in self._extract_results(page["response"]):
-                key = self._job_key(job)
-                if key is None:
-                    continue
-                aggregated[key] = job
-        return aggregated
-
-    def _locations(self, job: dict[str, Any]) -> list[str]:
-        """Extract location names from job record."""
-        raw_locations_value = job.get("locations")
-        if not isinstance(raw_locations_value, list):
-            return []
-
-        locations: list[str] = []
-        for location_value in raw_locations_value:
-            if not isinstance(location_value, dict):
-                continue
-
-            location = cast(dict[str, Any], location_value)
-            name_value = location.get("name")
-            if isinstance(name_value, str) and name_value:
-                locations.append(name_value)
-
-        return locations
-
-    def _build_job_record(self, job: dict[str, Any], fallback_key: str) -> dict[str, Any]:
-        """Transform raw API job record into normalized format matching normalization keys."""
-        req_id = self._job_key(job) or fallback_key
-
-        # Use postingTitle for the actual job title
-        title = str(job.get("postingTitle") or "")
-
-        # Use transformedPostingTitle (slug) for the URL
-        title_slug = str(job.get("transformedPostingTitle") or job.get("postingTitle") or "")
-
-        team_code = None
-        team_value = job.get("team")
-        if isinstance(team_value, dict):
-            team = cast(dict[str, Any], team_value)
-            team_code_value = team.get("teamCode")
-            if isinstance(team_code_value, str):
-                team_code = team_code_value
-
-        url = f"https://jobs.apple.com/en-il/details/{req_id}/{title_slug}"
-        if team_code:
-            url = f"{url}?team={team_code}"
-
-        # Extract first location name for the location field
-        locations_list = self._locations(job)
-        location = locations_list[0] if locations_list else None
-
-        return {
-            "id": req_id,
-            "title": title,
-            "url": url,
-            "location": location,
-            "description": job.get("jobSummary"),
-            "posted_at": job.get("postingDate") or job.get("postDateInGMT"),
-        }
-
-    def normalize(self, raw: Any) -> list[JobPosting]:
-        """Convert raw API job records into JobPosting models.
-
-        Processes paginated API responses: extracts jobs, deduplicates,
-        transforms via _build_job_record, then normalizes to JobPosting models.
-        """
-        if not isinstance(raw, list):
-            return []
-
-        # raw is the page_dumps list from fetch()
-        # Each item has: {"page": int, "request": dict, "status": int, "response": dict}
-
-        # Aggregate jobs across pages
-        aggregated = self._aggregate_jobs(raw)
-        if not aggregated:
-            return []
-
-        # Transform each job and normalize
-        transformed: list[dict[str, Any]] = []
-        for job_key, job in aggregated.items():
-            record = self._build_job_record(job, job_key)
-            transformed.append(record)
-
-        # Use generic normalization to create JobPosting models
-        return normalize_records("apple", transformed)
+    async def _get_csrf_token(self, client: httpx.AsyncClient) -> str | None:
+        resp = await client.get(_CSRF_URL, headers={"accept": "*/*"})
+        return str(resp.headers.get("x-apple-csrf-token")) if resp.status_code == 200 else None
 
 
-# Backwards-compatible name used by dynamic loader
 Source = AppleSource
+
+if __name__ == "__main__":
+    import asyncio
+
+    _configure_logging()
+
+    async def _run_demo() -> None:
+        _cfg, sources = arachne.config.loader.load_all(Path("config"))
+        if (cfg := sources.get("apple")) is None:
+            logger.warning("Apple config not found.")
+            return
+        async with httpx.AsyncClient() as client:
+            source = AppleSource(cfg)
+            jobs = source.normalize(await source.fetch(client))
+        for job in jobs:
+            logger.info(f"{'=' * 40}")
+            logger.info(f"{job}")
+        logger.info(f"Found jobs: {len(jobs)}")
+
+    asyncio.run(_run_demo())
