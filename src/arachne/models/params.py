@@ -131,3 +131,40 @@ class AppleParams(BaseParams):
             "key": self.key,
             "language": self.language,
         }
+
+
+class MetaParams(BaseParams):
+    query: str = Field(default="software engineer")
+    offices: list[str] = Field(default_factory=lambda: ["Tel Aviv, Israel"])
+    roles: list[str] = Field(default_factory=lambda: ["Full time employment"])
+    divisions: list[str] = Field(default_factory=list)
+    leadership_levels: list[str] = Field(default_factory=list)
+    saved_jobs: list[str] = Field(default_factory=list)
+    saved_searches: list[str] = Field(default_factory=list)
+    sub_teams: list[str] = Field(default_factory=list)
+    teams: list[str] = Field(default_factory=list)
+    is_leadership: bool = False
+    is_remote_only: bool = False
+    sort_by_new: bool = False
+    results_per_page: int | None = None
+    doc_id: str | None = None
+
+    def to_search_input(self) -> dict[str, Any]:
+        return {
+            "q": self.query,
+            "divisions": self.divisions,
+            "offices": self.offices,
+            "roles": self.roles,
+            "leadership_levels": self.leadership_levels,
+            "saved_jobs": self.saved_jobs,
+            "saved_searches": self.saved_searches,
+            "sub_teams": self.sub_teams,
+            "teams": self.teams,
+            "is_leadership": self.is_leadership,
+            "is_remote_only": self.is_remote_only,
+            "sort_by_new": self.sort_by_new,
+            "results_per_page": self.results_per_page,
+        }
+
+    def to_variables(self) -> dict[str, Any]:
+        return {"search_input": self.to_search_input()}
