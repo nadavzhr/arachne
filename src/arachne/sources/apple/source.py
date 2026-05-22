@@ -282,7 +282,7 @@ Source = AppleSource
 if __name__ == "__main__":
     import asyncio
 
-    from arachne.logging_config import configure_logging, source_logger
+    from arachne.logging import configure_logging, source_logger
 
     async def _run_demo() -> None:
         global_cfg, sources = arachne.config.loader.load_all(Path("config"))

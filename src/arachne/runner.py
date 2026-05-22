@@ -12,7 +12,7 @@ import arachne.filters
 import arachne.models.job
 from arachne.clients.http import create_client
 from arachne.config.loader import load_all
-from arachne.logging_config import configure_logging, source_logger
+from arachne.logging import configure_logging, source_logger
 from arachne.sources import get_source_class
 from arachne.sources.base import Source
 from arachne.storage.json import JsonFileJobStorage

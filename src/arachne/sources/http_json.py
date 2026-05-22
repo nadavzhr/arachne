@@ -12,7 +12,7 @@ from httpx import AsyncClient
 
 from arachne.clients.http import fetch_json, fetch_paginated_json
 from arachne.config.loader import SourceConfig
-from arachne.logging_config import source_logger
+from arachne.logging import source_logger
 from arachne.models.job import JobPosting
 from arachne.sources.base import Source as BaseSource
 from arachne.utils.normalization import normalize_records

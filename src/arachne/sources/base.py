@@ -19,7 +19,7 @@ from typing import Any
 import httpx
 
 from arachne.config.loader import SourceConfig
-from arachne.logging_config import source_logger
+from arachne.logging import source_logger
 from arachne.models.job import JobPosting
 
 

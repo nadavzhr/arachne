@@ -517,7 +517,7 @@ class MetaSource(PlaywrightSource):
 
 async def _run_demo() -> None:
     cfg = SourceConfig(url=META_JOBS_URL)
-    from arachne.logging_config import configure_logging, source_logger
+    from arachne.logging import configure_logging, source_logger
 
     configure_logging(
         enabled=True,
