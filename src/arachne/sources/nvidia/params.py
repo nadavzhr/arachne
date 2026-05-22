@@ -24,7 +24,11 @@ def _job_types(levels: list[ExperienceLevel]) -> list[str]:
     values: list[str] = []
     if ExperienceLevel.ENTRY in levels:
         values.append("new college graduate")
-    if ExperienceLevel.MID in levels or ExperienceLevel.SENIOR in levels:
+    if (
+        ExperienceLevel.ENTRY in levels
+        or ExperienceLevel.MID in levels
+        or ExperienceLevel.SENIOR in levels
+    ):
         values.append("regular employee")
     return values or ["new college graduate"]
 

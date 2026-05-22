@@ -25,7 +25,7 @@ def _default_employment_types() -> list[EmploymentType]:
 
 
 def _default_experience_levels() -> list[ExperienceLevel]:
-    return [ExperienceLevel.ENTRY, ExperienceLevel.MID]
+    return [ExperienceLevel.ENTRY]
 
 
 class Filters(BaseModel):

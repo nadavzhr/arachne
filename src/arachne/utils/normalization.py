@@ -125,7 +125,9 @@ def _parse_experience_level(value: Any) -> ExperienceLevel | None:
         return ExperienceLevel.ENTRY
     return None
 
+
 # region Public API
+
 
 def first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
     return _first_str(record, keys)

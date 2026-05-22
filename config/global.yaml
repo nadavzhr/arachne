@@ -12,13 +12,11 @@ search:
   title: software engineer
   locations:
     - Israel
-  remote: true
+  remote: false
   employment_types:
     - full_time
   experience_levels:
     - entry
-    - mid
 filters:
-  include_keywords: ["software", "engineer"]
-  exclude_keywords: ["intern", "contract", "senior"]
-  locations: ["Israel", "Remote"]
+  include_keywords: ["software", "software engineer", "sw", "swe", "developer", "programmer"]
+  exclude_keywords: ["intern", "contract", "student", "senior", "manager", "director", "vp", "principal", "staff", "lead"]
