@@ -12,6 +12,7 @@ microsoft:
     filter_profession: software engineering
     filter_seniority:
       - Entry
+      - Mid-Level
   headers: {}
   filters:
     include_keywords: ["software", "engineer"]
@@ -28,7 +29,9 @@ nvidia:
     start: "0"
     filter_include_remote: "1"
     filter_job_category: engineering
-    filter_job_type: regular employee
+    filter_job_type: 
+      - new college graduate
+      - regular employee
     filter_time_type: full time
     sort_by: relevance
   headers: {}

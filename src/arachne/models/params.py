@@ -34,7 +34,7 @@ class MicrosoftParams(BaseParams):
     sort_by: Literal["distance", "relevance"] = Field(default="distance")
     filter_profession: str = Field(default="software engineering")
     filter_seniority: list[Literal["Entry", "Mid-Level", "Senior"]] | None = Field(
-        default_factory=_default_microsoft_seniority,
+        default_factory=_default_microsoft_seniority
     )
 
     def to_query(self) -> dict[str, Any]:
@@ -47,9 +47,8 @@ class MicrosoftParams(BaseParams):
             "hl": self.hl,
             "sort_by": self.sort_by,
             "filter_profession": self.filter_profession,
+            "filter_seniority": self.filter_seniority,
         }
-        if self.filter_seniority is not None:
-            query["filter_seniority"] = ",".join(self.filter_seniority)
         return query
 
 
@@ -60,7 +59,7 @@ class NvidiaParams(BaseParams):
     start: str = Field(default="0")
     filter_include_remote: str = Field(default="1")
     filter_job_category: str = Field(default="engineering")
-    filter_job_type: str = Field(default="regular employee")
+    filter_job_type: list[str] = Field(default_factory=lambda: ["new college graduate"])
     filter_time_type: str = Field(default="full time")
     sort_by: Literal["distance", "relevance"] = Field(default="relevance")
     pid: str | None = None
@@ -108,7 +107,7 @@ class AmazonParams(BaseParams):
 class GoogleParams(BaseParams):
     location: list[str] = Field(default_factory=lambda: ["Israel"])
     target_level: list[Literal["EARLY", "MID"]] = Field(
-        default_factory=_default_google_target_levels,
+        default_factory=_default_google_target_levels
     )
     employment_type: Literal["FULL_TIME"] = Field(default="FULL_TIME")
 

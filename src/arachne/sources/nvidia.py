@@ -14,7 +14,7 @@ from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.models.params import NvidiaParams
 from arachne.sources.base import Source as BaseSource
-from arachne.sources.http_json import fetch as _http_fetch
+from arachne.sources.http_json import fetch_paginated
 from arachne.utils.normalization import build_url, normalize_records
 
 
@@ -25,7 +25,7 @@ class NvidiaSource(BaseSource):
 
     async def fetch(self, client: AsyncClient) -> Any:
         request_cfg = self.cfg.model_copy(update={"params": self.params.to_query()})
-        return await _http_fetch(request_cfg, client)
+        return await fetch_paginated(request_cfg, client)
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         items = raw

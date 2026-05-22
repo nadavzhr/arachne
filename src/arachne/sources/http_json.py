@@ -10,7 +10,7 @@ from typing import Any
 
 from httpx import AsyncClient
 
-from arachne.clients.http import fetch_json
+from arachne.clients.http import fetch_json, fetch_paginated_json
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.sources.base import Source as BaseSource
@@ -22,6 +22,10 @@ async def fetch(cfg: SourceConfig, client: AsyncClient) -> list[Any]:
     if isinstance(raw, list):
         return raw
     return [raw]
+
+
+async def fetch_paginated(cfg: SourceConfig, client: AsyncClient) -> list[Any]:
+    return await fetch_paginated_json(client, cfg.url, params=cfg.params, headers=cfg.headers)
 
 
 class HTTPSource(BaseSource):

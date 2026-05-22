@@ -1,3 +1,5 @@
+from pydantic import HttpUrl
+
 import arachne.config.loader
 import arachne.filters
 import arachne.models.job
@@ -11,7 +13,7 @@ def _job(
     return arachne.models.job.JobPosting(
         source="test",
         title=title,
-        url="https://example.com/jobs/1",
+        url=HttpUrl("https://example.com/jobs/1"),
         description=description,
         location=location,
     )
