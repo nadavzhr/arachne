@@ -3,34 +3,46 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Literal
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+
+from arachne.models.schema import Filters, JobSearchCriteria
 
 
-class Filters(BaseModel):
-    include_keywords: list[str] = []
-    exclude_keywords: list[str] = []
-    locations: list[str] = []
+class LoggingConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    enabled: bool = True
+    directory: str = "logs"
+    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    central_file: str = "arachne.log"
+    source_directory: str = "sources"
 
 
 class GlobalConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     data_dir: str = "data"
     timeout_seconds: float = 30.0
     concurrency: int = 5
     user_agent: str = "arachne/0.1.0"
-    filters: Filters = Filters()
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    search: JobSearchCriteria = Field(default_factory=JobSearchCriteria)
+    filters: Filters = Field(default_factory=Filters)
 
 
 class SourceConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     enabled: bool = True
+    name: str = ""
     url: str
-    params: dict[str, Any] | None = None
-    headers: dict[str, str] | None = None
-    apply_base: str | None = None
+    search: JobSearchCriteria = Field(default_factory=JobSearchCriteria)
+    headers: dict[str, str] = Field(default_factory=dict)
     user_agent: str | None = None
-    filters: Filters = Filters()
+    filters: Filters = Field(default_factory=Filters)
 
 
 def load_global(path: Path) -> GlobalConfig:
@@ -43,13 +55,22 @@ def load_sources(path: Path, global_cfg: GlobalConfig | None = None) -> dict[str
     result: dict[str, SourceConfig] = {}
     for name, raw in data.items():
         source_raw = dict(raw or {})
+        source_raw["name"] = name
+        source_search = source_raw.pop("search", {}) or {}
         source_filters = source_raw.pop("filters", {}) or {}
-        merged_filters: dict[str, Any] = {}
         if global_cfg is not None:
-            merged_filters = global_cfg.filters.model_dump()
-        combined_filters = {**merged_filters, **source_filters}
-        if combined_filters:
-            source_raw["filters"] = combined_filters
+            source_raw["search"] = {
+                **global_cfg.search.model_dump(mode="json"),
+                **source_search,
+            }
+            source_raw["filters"] = {
+                **global_cfg.filters.model_dump(mode="json"),
+                **source_filters,
+            }
+        elif source_search:
+            source_raw["search"] = source_search
+        if global_cfg is None and source_filters:
+            source_raw["filters"] = source_filters
         if global_cfg is not None and "user_agent" not in source_raw:
             source_raw["user_agent"] = global_cfg.user_agent
         result[name] = SourceConfig(**source_raw)

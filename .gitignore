@@ -8,6 +8,7 @@ coverage.xml
 data/
 dist/
 htmlcov/
+logs/
 __pycache__/
 *.egg-info/
 

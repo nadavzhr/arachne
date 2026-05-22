@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import urllib.parse
 from pathlib import Path
 from typing import TypedDict
@@ -13,9 +12,9 @@ from pydantic import BaseModel, Field
 
 import arachne.config.loader
 import arachne.models.job
-import arachne.models.params
 import arachne.sources.base
 import arachne.utils.normalization
+from arachne.sources.apple.params import AppleParams
 from arachne.utils.type_casts import as_dict, as_list
 
 _BASE_URL = "https://jobs.apple.com"
@@ -25,22 +24,6 @@ _DATE_FORMAT = {"longDate": "MMMM D, YYYY", "mediumDate": "MMM D, YYYY"}
 _PAGE_SIZE = 20
 _MAX_PAGES = 10_000
 _DEFAULT_LOCALE = "en_US"
-
-logger = logging.getLogger(__name__)
-
-
-def _configure_logging() -> None:
-    if logger.handlers or logging.getLogger().handlers:
-        return
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-
-_configure_logging()
 
 
 # ---------------------------------------------------------------------------
@@ -138,20 +121,20 @@ class AppleSource(arachne.sources.base.Source):
 
     def __init__(self, cfg: arachne.config.loader.SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = arachne.models.params.AppleParams(**(cfg.params or {}))
+        self.params = AppleParams.from_search(cfg.search)
 
     # region Public interface
 
     async def fetch(self, client: httpx.AsyncClient) -> list[_PageDump]:
         search_url = self._search_url()
-        logger.info(f"Opening {search_url}")
+        self.log.info("search page prepared: url=%s", search_url)
 
         csrf_token = await self._get_csrf_token(client)
         filters = self._build_filters()
         dumps: list[_PageDump] = []
 
         for page in range(1, _MAX_PAGES + 1):
-            logger.info(f"Fetching page {page}...")
+            self.log.info("page fetch started: page=%d", page)
             payload = self._build_payload(page, filters)
 
             resp = await client.post(
@@ -164,8 +147,11 @@ class AppleSource(arachne.sources.base.Source):
             try:
                 body = resp.json()
             except json.JSONDecodeError:
-                logger.warning(
-                    f"Failed to decode JSON response on page {page}. Response text: {resp.text}"
+                self.log.warning(
+                    "page response was not JSON: page=%d status=%d body=%s",
+                    page,
+                    resp.status_code,
+                    resp.text,
                 )
                 body = resp.text
 
@@ -175,11 +161,11 @@ class AppleSource(arachne.sources.base.Source):
 
             body_payload = as_dict(body)
             if body_payload is None or self._has_api_error(body_payload):
-                logger.warning(f"Stopping: unexpected response or API error on page {page}.")
+                self.log.warning("pagination stopped: page=%d reason=unexpected_response", page)
                 break
 
             results = self._parse_results(body_payload)
-            logger.info(f"Jobs on page {page}: {len(results)}")
+            self.log.info("page fetch completed: page=%d jobs=%d", page, len(results))
 
             if len(results) < _PAGE_SIZE:
                 break
@@ -191,6 +177,8 @@ class AppleSource(arachne.sources.base.Source):
         if raw_pages is None:
             return []
 
+        # Apple API can return duplicate job records across pages
+        # so we dedupe by job ID before normalization.
         deduped: dict[str, _JobRecord] = {}
 
         for page in raw_pages:
@@ -296,19 +284,24 @@ Source = AppleSource
 if __name__ == "__main__":
     import asyncio
 
-    _configure_logging()
+    from arachne.logging import configure_logging, source_logger
 
     async def _run_demo() -> None:
-        _cfg, sources = arachne.config.loader.load_all(Path("config"))
+        global_cfg, sources = arachne.config.loader.load_all(Path("config"))
+        configure_logging(
+            enabled=global_cfg.logging.enabled,
+            directory=global_cfg.logging.directory,
+            level=global_cfg.logging.level,
+            central_file=global_cfg.logging.central_file,
+            source_directory=global_cfg.logging.source_directory,
+        )
+        demo_log = source_logger("apple", __name__)
         if (cfg := sources.get("apple")) is None:
-            logger.warning("Apple config not found.")
+            demo_log.warning("source config missing")
             return
         async with httpx.AsyncClient() as client:
             source = AppleSource(cfg)
             jobs = source.normalize(await source.fetch(client))
-        for job in jobs:
-            logger.info(f"{'=' * 40}")
-            logger.info(f"{job}")
-        logger.info(f"Found jobs: {len(jobs)}")
+        demo_log.info("demo completed: jobs=%d", len(jobs))
 
     asyncio.run(_run_demo())

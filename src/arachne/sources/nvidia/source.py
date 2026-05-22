@@ -12,20 +12,19 @@ from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
-from arachne.models.params import NvidiaParams
 from arachne.sources.base import Source as BaseSource
 from arachne.sources.http_json import fetch_paginated
+from arachne.sources.nvidia.params import NvidiaParams
 from arachne.utils.normalization import build_url, normalize_records
 
 
 class NvidiaSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = NvidiaParams(**(cfg.params or {}))
+        self.params = NvidiaParams.from_search(cfg.search)
 
     async def fetch(self, client: AsyncClient) -> Any:
-        request_cfg = self.cfg.model_copy(update={"params": self.params.to_query()})
-        return await fetch_paginated(request_cfg, client)
+        return await fetch_paginated(self.cfg, client, params=self.params.to_query())
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         items = raw
@@ -43,13 +42,12 @@ class NvidiaSource(BaseSource):
         if not isinstance(items, list):
             return []
 
-        base = self.cfg.apply_base
-        if not base:
-            try:
-                p = urlparse(self.cfg.url)
-                base = f"{p.scheme}://{p.netloc}"
-            except Exception:
-                base = None
+        base = None
+        try:
+            p = urlparse(self.cfg.url)
+            base = f"{p.scheme}://{p.netloc}"
+        except Exception:
+            base = None
 
         for rec in items:
             if not isinstance(rec, dict):

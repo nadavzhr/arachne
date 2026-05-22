@@ -18,7 +18,7 @@ from playwright.async_api import Locator, Response
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
-from arachne.models.params import MetaParams
+from arachne.sources.meta.params import MetaParams
 from arachne.sources.playwright import PlaywrightSource
 from arachne.utils.normalization import normalize_records
 
@@ -92,7 +92,7 @@ def _parse_graphql_text(text: str) -> list[dict[str, Any]]:
 class MetaSource(PlaywrightSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = MetaParams(**(cfg.params or {}))
+        self.params = MetaParams.from_search(cfg.search)
 
     def _response_is_job_search(self, response: Response) -> bool:
         if response.request.method != "POST":
@@ -266,14 +266,6 @@ class MetaSource(PlaywrightSource):
             base_payload: dict[str, str] = {}
             if captured:
                 parsed_payload = cast(dict[str, str], captured.get("parsed", {}))
-                response_text = captured.get("response_text")
-                if isinstance(response_text, str):
-                    payloads = _parse_graphql_text(response_text)
-                    if payloads:
-                        return payloads
-                    if captured.get("status"):
-                        print(f"Meta search response status: {captured.get('status')}")
-
                 lsd_token = parsed_payload.get("lsd")
                 variables = self._merge_variables(parsed_payload.get("variables"))
                 doc_id = self.params.doc_id or parsed_payload.get("doc_id") or DEFAULT_DOC_ID
@@ -284,7 +276,7 @@ class MetaSource(PlaywrightSource):
                 doc_id = self.params.doc_id or DEFAULT_DOC_ID
 
             if not lsd_token:
-                print("Failed to extract LSD token from Meta Careers.")
+                self.log.warning("request build stopped: missing_lsd_token")
                 return []
 
             payload = self._build_payload(base_payload, lsd_token, doc_id, variables)
@@ -298,14 +290,19 @@ class MetaSource(PlaywrightSource):
             )
 
             if not response.ok:
-                print(f"Request failed with status code {response.status}")
-                print(await response.text())
+                self.log.warning(
+                    "graphql request failed: status=%d body=%s",
+                    response.status,
+                    await response.text(),
+                )
                 return []
 
             response_text = await response.text()
             payloads = _parse_graphql_text(response_text)
             if not payloads:
-                print("No JSON payloads extracted from Meta response.")
+                self.log.warning("graphql response parsed no payloads")
+            else:
+                self.log.info("graphql response parsed: payloads=%d", len(payloads))
             return payloads
         finally:
             await self._close_browser()
@@ -511,12 +508,21 @@ class MetaSource(PlaywrightSource):
 
 async def _run_demo() -> None:
     cfg = SourceConfig(url=META_JOBS_URL)
+    from arachne.logging import configure_logging, source_logger
+
+    configure_logging(
+        enabled=True,
+        directory="logs",
+        level="INFO",
+        central_file="arachne.log",
+        source_directory="sources",
+    )
+    demo_log = source_logger("meta", __name__)
     async with AsyncClient() as client:
         src = MetaSource(cfg)
         raw = await src.fetch(client)
         jobs = src.normalize(raw)
-        payload = [job.model_dump(mode="json") for job in jobs][:10]
-        print(json.dumps(payload, indent=2))
+        demo_log.info("demo completed: jobs=%d", len(jobs))
 
 
 # Backwards-compatible name used by dynamic loader

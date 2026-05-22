@@ -15,8 +15,9 @@ from playwright.async_api import Locator
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
-from arachne.models.params import GoogleParams, build_query_string
+from arachne.sources.google.params import GoogleParams
 from arachne.sources.playwright import PlaywrightSource
+from arachne.sources.query import build_query_string
 from arachne.utils.normalization import normalize_records
 
 # Configuration Constants
@@ -37,7 +38,7 @@ class GoogleSource(PlaywrightSource):
 
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = GoogleParams(**(cfg.params or {}))
+        self.params = GoogleParams.from_search(cfg.search)
 
     def _build_search_url(self) -> str:
         return f"{BASE_URL}jobs/results?{build_query_string(self.params.to_query())}"
@@ -65,8 +66,8 @@ class GoogleSource(PlaywrightSource):
             location = ", ".join(cleaned_lines)
 
             return {"title": title.strip(), "location": location.strip(), "url": job_url}
-        except Exception as e:
-            print(f"Error parsing a card item: {e}")
+        except Exception as exc:
+            self.log.warning("job card parse failed: %s", exc)
             return {"title": "Error Parsing", "location": "Error", "url": "Error"}
 
     async def fetch(self, client: AsyncClient) -> list[dict[str, str]]:
@@ -76,23 +77,24 @@ class GoogleSource(PlaywrightSource):
 
             assert self.page is not None, "Page not initialized"
             search_url = self._build_search_url()
-            print("Opening Google Careers...")
+            self.log.info("search page opened: url=%s", search_url)
             await self.page.goto(search_url, wait_until="load")
 
             try:
                 await self.page.wait_for_selector("li:has(h3)", timeout=DEFAULT_TIMEOUT_MS)
             except Exception:
-                print("Timeout waiting for job elements to load.")
+                self.log.warning("job cards wait timed out: timeout_ms=%d", DEFAULT_TIMEOUT_MS)
                 return []
 
             job_cards = await self.page.locator("li:has(h3)").all()
-            print(f"Found {len(job_cards)} jobs. Extracting details...")
+            self.log.info("job cards found: count=%d", len(job_cards))
 
             tasks = [self._parse_job_card(card) for card in job_cards]
             extracted_jobs = await asyncio.gather(*tasks)
 
             # Filter out parsing errors
             extracted_jobs = [j for j in extracted_jobs if j["title"] != "Error Parsing"]
+            self.log.info("job cards parsed: count=%d", len(extracted_jobs))
 
             return extracted_jobs
 

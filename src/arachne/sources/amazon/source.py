@@ -1,8 +1,4 @@
-"""Amazon source implementation with per-source normalization.
-
-Uses `url_next_step` when available, otherwise falls back to constructing
-URLs from `job_path` joined with `cfg.apply_base` or the source URL host.
-"""
+"""Amazon source implementation with per-source request mapping and normalization."""
 
 from __future__ import annotations
 
@@ -13,7 +9,7 @@ from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
-from arachne.models.params import AmazonParams
+from arachne.sources.amazon.params import AmazonParams
 from arachne.sources.base import Source as BaseSource
 from arachne.sources.http_json import fetch as _http_fetch
 from arachne.utils.normalization import build_url, normalize_records, try_parse_json_string
@@ -22,11 +18,10 @@ from arachne.utils.normalization import build_url, normalize_records, try_parse_
 class AmazonSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = AmazonParams(**(cfg.params or {}))
+        self.params = AmazonParams.from_search(cfg.search)
 
     async def fetch(self, client: AsyncClient) -> Any:
-        request_cfg = self.cfg.model_copy(update={"params": self.params.to_query()})
-        return await _http_fetch(request_cfg, client)
+        return await _http_fetch(self.cfg, client, params=self.params.to_query())
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         # raw is expected to be {'jobs': [...] } or a list
@@ -44,14 +39,12 @@ class AmazonSource(BaseSource):
         if not isinstance(items, list):
             return []
 
-        # determine apply base: prefer cfg.apply_base, else derive from cfg.url
-        base = self.cfg.apply_base
-        if not base:
-            try:
-                p = urlparse(self.cfg.url)
-                base = f"{p.scheme}://{p.netloc}"
-            except Exception:
-                base = None
+        base = None
+        try:
+            p = urlparse(self.cfg.url)
+            base = f"{p.scheme}://{p.netloc}"
+        except Exception:
+            base = None
 
         # massage items in-place to set `url` field
         for rec in items:

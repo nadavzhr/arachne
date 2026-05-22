@@ -16,6 +16,7 @@ application.
 
 * Fetch provider payloads concurrently using an async HTTP client.
 * Normalize heterogeneous provider responses into a single `JobPosting` model.
+* Keep user-facing search configuration provider-neutral.
 * Persist raw provider payloads and normalized snapshots locally.
 * Keep the architecture simple and easy to extend with additional providers.
 
@@ -49,13 +50,18 @@ pip install -r requirements.txt
 * Run using python directly:
 
 ```bash
-python3 src/arcachne/runner.py
+python3 src/arachne/runner.py
 ```
 
 ## Configuration
 
-* `config/global.yaml` — global defaults (data directory, timeouts, filters, concurrency).
-* `config/sources.yaml` — per-source configuration (URL, params, headers, enabled flag, apply_base).
+* `config/global.yaml` — runtime defaults plus shared search, filter, and logging criteria.
+* `config/sources.yaml` — per-source configuration (URL, headers, enabled flag, optional
+  shared-schema search overrides).
+
+Provider-specific request parameters are translated inside the Python source adapters. YAML should
+describe the job search in terms of the shared schema (`title`, `locations`, `remote`,
+`employment_types`, `experience_levels`) rather than raw provider query keys.
 
 ## Output
 
@@ -66,11 +72,22 @@ python3 src/arcachne/runner.py
   * `{data_dir}/{source}/jobs.unfiltered.json` — normalized job snapshots (unfiltered)
   * `{data_dir}/{source}/jobs.json` — normalized job snapshots after filters
 
+## Logging
+
+* Logging is configured centrally from `config/global.yaml`.
+* The runner writes file logs only by default:
+  * `logs/arachne.log` — full application log
+  * `logs/sources/{source}.log` — per-source log slices for parallel debugging
+* Source adapters should use `self.log` for fetch, pagination, scraping, and parsing messages.
+
 ## Supported providers
 
 * Microsoft Careers
 * NVIDIA Careers
 * Amazon Jobs
+* Google Careers
+* Apple Careers
+* Meta Careers
 
 ## Roadmap
 
@@ -80,5 +97,8 @@ python3 src/arcachne/runner.py
 
 ## Extending
 
-* Add a new module under `src/arachne/sources/<name>.py` exposing a `Source` class with
-  `async def fetch(self, client)` and `def normalize(self, raw)`.
+* Add a package under `src/arachne/sources/<name>/` exposing `Source` from `__init__.py`.
+* Keep provider-specific request mapping in `src/arachne/sources/<name>/params.py` and adapter
+  behavior in `src/arachne/sources/<name>/source.py`.
+* Map `SourceConfig.search` into provider-specific request parameters inside the source package
+  rather than adding raw provider keys to `config/sources.yaml`.
