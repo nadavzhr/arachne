@@ -2,7 +2,17 @@ data_dir: data
 timeout_seconds: 30.0
 concurrency: 5
 user_agent: "arachne/0.1.0"
+search:
+  title: software engineer
+  locations:
+    - Israel
+  remote: true
+  employment_types:
+    - full_time
+  experience_levels:
+    - entry
+    - mid
 filters:
-  include_keywords: []
-  exclude_keywords: []
-  locations: []
+  include_keywords: ["software", "engineer"]
+  exclude_keywords: ["intern", "contract", "senior"]
+  locations: ["Israel", "Remote"]

@@ -17,15 +17,23 @@ from arachne.sources.base import Source as BaseSource
 from arachne.utils.normalization import normalize_records
 
 
-async def fetch(cfg: SourceConfig, client: AsyncClient) -> list[Any]:
-    raw = await fetch_json(client, cfg.url, params=cfg.params, headers=cfg.headers)
+async def fetch(
+    cfg: SourceConfig,
+    client: AsyncClient,
+    params: dict[str, Any] | None = None,
+) -> list[Any]:
+    raw = await fetch_json(client, cfg.url, params=params, headers=cfg.headers)
     if isinstance(raw, list):
         return raw
     return [raw]
 
 
-async def fetch_paginated(cfg: SourceConfig, client: AsyncClient) -> list[Any]:
-    return await fetch_paginated_json(client, cfg.url, params=cfg.params, headers=cfg.headers)
+async def fetch_paginated(
+    cfg: SourceConfig,
+    client: AsyncClient,
+    params: dict[str, Any] | None = None,
+) -> list[Any]:
+    return await fetch_paginated_json(client, cfg.url, params=params, headers=cfg.headers)
 
 
 class HTTPSource(BaseSource):

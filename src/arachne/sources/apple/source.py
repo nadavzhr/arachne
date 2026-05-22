@@ -13,9 +13,9 @@ from pydantic import BaseModel, Field
 
 import arachne.config.loader
 import arachne.models.job
-import arachne.models.params
 import arachne.sources.base
 import arachne.utils.normalization
+from arachne.sources.apple.params import AppleParams
 from arachne.utils.type_casts import as_dict, as_list
 
 _BASE_URL = "https://jobs.apple.com"
@@ -138,7 +138,7 @@ class AppleSource(arachne.sources.base.Source):
 
     def __init__(self, cfg: arachne.config.loader.SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = arachne.models.params.AppleParams(**(cfg.params or {}))
+        self.params = AppleParams.from_search(cfg.search)
 
     # region Public interface
 

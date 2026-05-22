@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 
-import arachne.config.loader
 import arachne.models.job
+from arachne.models.schema import Filters
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -35,7 +35,7 @@ def _normalize_keywords(values: Iterable[str]) -> list[str]:
 
 def apply_filters(
     jobs: Sequence[arachne.models.job.JobPosting],
-    filters: arachne.config.loader.Filters | None,
+    filters: Filters | None,
 ) -> list[arachne.models.job.JobPosting]:
     """Apply include/exclude/location filters to normalized jobs."""
     if filters is None:

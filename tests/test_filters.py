@@ -1,8 +1,8 @@
 from pydantic import HttpUrl
 
-import arachne.config.loader
 import arachne.filters
 import arachne.models.job
+from arachne.models.schema import Filters
 
 
 def _job(
@@ -20,7 +20,7 @@ def _job(
 
 
 def test_include_keywords_any_match() -> None:
-    filters = arachne.config.loader.Filters(include_keywords=["software engineer"])
+    filters = Filters(include_keywords=["software engineer"])
     jobs = [_job("Software Engineer", "backend"), _job("Product Manager")]
 
     result = arachne.filters.apply_filters(jobs, filters)
@@ -30,7 +30,7 @@ def test_include_keywords_any_match() -> None:
 
 
 def test_exclude_keywords_drop_match() -> None:
-    filters = arachne.config.loader.Filters(exclude_keywords=["intern"])
+    filters = Filters(exclude_keywords=["intern"])
     jobs = [_job("Software Engineer"), _job("Software Intern")]
 
     result = arachne.filters.apply_filters(jobs, filters)
@@ -39,7 +39,7 @@ def test_exclude_keywords_drop_match() -> None:
 
 
 def test_location_filter_matches_tokens() -> None:
-    filters = arachne.config.loader.Filters(locations=["Remote"])
+    filters = Filters(locations=["Remote"])
     jobs = [_job("Software Engineer", location="Remote - US"), _job("Onsite", location="NY")]
 
     result = arachne.filters.apply_filters(jobs, filters)

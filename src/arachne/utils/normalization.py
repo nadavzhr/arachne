@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from arachne.models.job import JobPosting
+from arachne.models.schema import EmploymentType, ExperienceLevel
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,14 @@ _ID_KEYS = ("id", "externalId", "jobId")
 _DESCRIPTION_KEYS = ("description", "desc", "summary")
 _POSTED_KEYS = ("posted_at", "postedAt", "datePosted", "posted", "posted_date")
 _REMOTE_KEYS = ("remote", "isRemote")
+_EMPLOYMENT_TYPE_KEYS = (
+    "employment_type",
+    "employmentType",
+    "jobType",
+    "timeType",
+    "schedule_type",
+)
+_EXPERIENCE_LEVEL_KEYS = ("experience_level", "experienceLevel", "seniority", "level")
 
 
 def _first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
@@ -32,6 +41,18 @@ def _first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
             name = v.get("name") or v.get("label")
             if isinstance(name, str) and name.strip():
                 return name.strip()
+        if isinstance(v, list):
+            names: list[str] = []
+            for item in v:
+                if isinstance(item, str) and item.strip():
+                    names.append(item.strip())
+                    continue
+                if isinstance(item, dict):
+                    name = item.get("name") or item.get("label")
+                    if isinstance(name, str) and name.strip():
+                        names.append(name.strip())
+            if names:
+                return ", ".join(dict.fromkeys(names))
     return None
 
 
@@ -56,6 +77,52 @@ def _parse_datetime(value: Any) -> datetime | None:
                 return datetime.strptime(value, "%Y-%m-%d")
             except Exception:
                 return None
+    return None
+
+
+def _as_lower_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return " ".join(_as_lower_text(item) for item in value)
+    if isinstance(value, dict):
+        return " ".join(_as_lower_text(item) for item in value.values())
+    return str(value).strip().lower()
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "remote"}
+    return bool(value)
+
+
+def _parse_employment_type(value: Any) -> EmploymentType | None:
+    text = _as_lower_text(value)
+    if not text:
+        return None
+    if "intern" in text:
+        return EmploymentType.INTERNSHIP
+    if "contract" in text:
+        return EmploymentType.CONTRACT
+    if "part" in text:
+        return EmploymentType.PART_TIME
+    if "full" in text:
+        return EmploymentType.FULL_TIME
+    return None
+
+
+def _parse_experience_level(value: Any) -> ExperienceLevel | None:
+    text = _as_lower_text(value)
+    if not text:
+        return None
+    if "senior" in text or "sr." in text or "sr " in text:
+        return ExperienceLevel.SENIOR
+    if "mid" in text or "regular" in text:
+        return ExperienceLevel.MID
+    if "entry" in text or "early" in text or "graduate" in text or "junior" in text:
+        return ExperienceLevel.ENTRY
     return None
 
 
@@ -93,7 +160,9 @@ def normalize_record(source: str, company: str | None, record: dict[str, Any]) -
     external_id = _first_any(record, _ID_KEYS)
     description = _first_str(record, _DESCRIPTION_KEYS)
     posted_at = _parse_datetime(_first_any(record, _POSTED_KEYS))
-    remote = bool(_first_any(record, _REMOTE_KEYS))
+    remote = _parse_bool(_first_any(record, _REMOTE_KEYS))
+    employment_type = _parse_employment_type(_first_any(record, _EMPLOYMENT_TYPE_KEYS))
+    experience_level = _parse_experience_level(_first_any(record, _EXPERIENCE_LEVEL_KEYS))
 
     payload: dict[str, Any] = {
         "source": source,
@@ -105,6 +174,8 @@ def normalize_record(source: str, company: str | None, record: dict[str, Any]) -
         "posted_at": posted_at,
         "description": description,
         "remote": remote,
+        "employment_type": employment_type,
+        "experience_level": experience_level,
     }
 
     return JobPosting(**payload)

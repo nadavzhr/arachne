@@ -1,9 +1,4 @@
-"""Source loader that maps source names to fetcher callables.
-
-The runner should call `get_fetcher(name)` to obtain an async `fetch(cfg, client)` callable.
-If a specific source module doesn't exist or doesn't expose `fetch`,
-a plain HTTP+JSON fetcher is returned.
-"""
+"""Source registry that maps configured source names to source adapter classes."""
 
 from __future__ import annotations
 
@@ -31,7 +26,7 @@ def get_source_class(name: str) -> type[Source]:
     """Return a `Source` class for the given source name.
 
     The returned value is a class that can be instantiated with a `SourceConfig`.
-    Falls back to `GenericSource` when a specific implementation is missing.
+    Falls back to `HTTPSource` when a specific implementation package is missing.
     """
     module = _import_module(name)
     if module is None:

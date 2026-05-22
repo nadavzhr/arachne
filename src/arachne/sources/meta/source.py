@@ -18,7 +18,7 @@ from playwright.async_api import Locator, Response
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
-from arachne.models.params import MetaParams
+from arachne.sources.meta.params import MetaParams
 from arachne.sources.playwright import PlaywrightSource
 from arachne.utils.normalization import normalize_records
 
@@ -92,7 +92,7 @@ def _parse_graphql_text(text: str) -> list[dict[str, Any]]:
 class MetaSource(PlaywrightSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = MetaParams(**(cfg.params or {}))
+        self.params = MetaParams.from_search(cfg.search)
 
     def _response_is_job_search(self, response: Response) -> bool:
         if response.request.method != "POST":
