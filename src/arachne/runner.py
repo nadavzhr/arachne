@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,14 @@ from arachne.sources.base import Source
 from arachne.storage.json import JsonFileJobStorage
 
 logger = logging.getLogger(__name__)
+
+
+def _timestamped_log_name(filename: str, stamp: str) -> str:
+    path = Path(filename)
+    suffix = path.suffix
+    if suffix:
+        return f"{path.stem}-{stamp}{suffix}"
+    return f"{path.name}-{stamp}"
 
 
 def _ensure_source(
@@ -35,12 +44,13 @@ def _ensure_source(
 
 async def run_from_config(config_dir: Path) -> None:
     global_cfg, sources = load_all(config_dir)
+    run_stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     configure_logging(
         enabled=global_cfg.logging.enabled,
         directory=global_cfg.logging.directory,
         level=global_cfg.logging.level,
-        central_file=global_cfg.logging.central_file,
-        source_directory=global_cfg.logging.source_directory,
+        central_file=_timestamped_log_name(global_cfg.logging.central_file, run_stamp),
+        source_directory=str(Path(global_cfg.logging.source_directory) / run_stamp),
     )
     logger.info(
         "run started: config_dir=%s sources=%d concurrency=%d",

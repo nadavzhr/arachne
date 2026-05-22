@@ -87,7 +87,7 @@ describe the job search in terms of the shared schema (`title`, `locations`, `re
 * Amazon Jobs
 * Google Careers
 * Apple Careers
-* Meta Careers (adapter present, disabled in the default config)
+* Meta Careers
 
 ## Roadmap
 

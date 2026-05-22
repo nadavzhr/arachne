@@ -50,6 +50,7 @@ class SourceFileHandler(logging.Handler):
             self.root.mkdir(parents=True, exist_ok=True)
             handler = logging.FileHandler(
                 self.root / f"{safe_name}.log",
+                mode="w",
                 encoding="utf-8",
             )
             handler.setLevel(self.level)
@@ -81,13 +82,15 @@ def configure_logging(
     log_dir.mkdir(parents=True, exist_ok=True)
     source_log_dir = log_dir / source_directory
 
+    central_log_path = log_dir / central_file
+
     log_level = logging.getLevelName(level.upper())
     if not isinstance(log_level, int):
         log_level = logging.INFO
 
     formatter = SourceFormatter(_DEFAULT_FORMAT, datefmt=_DATE_FORMAT)
 
-    central_handler = logging.FileHandler(log_dir / central_file, encoding="utf-8")
+    central_handler = logging.FileHandler(central_log_path, mode="w", encoding="utf-8")
     central_handler.setLevel(log_level)
     central_handler.setFormatter(formatter)
 
