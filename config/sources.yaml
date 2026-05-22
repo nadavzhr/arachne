@@ -33,6 +33,10 @@ meta:
   search:
     locations:
       - Tel Aviv, Israel
+  filters:
+    locations:
+      - Israel
+      - Tel Aviv
 
 google:
   enabled: true

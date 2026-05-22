@@ -2,6 +2,7 @@ from arachne.models.schema import EmploymentType, ExperienceLevel, JobSearchCrit
 from arachne.sources.amazon.params import AmazonParams
 from arachne.sources.apple.params import AppleParams
 from arachne.sources.google.params import GoogleParams
+from arachne.sources.meta.params import MetaParams
 from arachne.sources.microsoft.params import MicrosoftParams
 from arachne.sources.nvidia.params import NvidiaParams
 
@@ -37,3 +38,4 @@ def test_shared_search_maps_to_provider_specific_vocabulary() -> None:
     assert AmazonParams.from_search(search).to_query()["normalized_country_code[]"] == ["ISR"]
     assert GoogleParams.from_search(search).to_query()["target_level"] == ["EARLY", "MID"]
     assert AppleParams.from_search(search).to_query()["location"] == ["israel-ISR"]
+    assert MetaParams.from_search(search).to_search_input()["offices"] == ["Israel"]

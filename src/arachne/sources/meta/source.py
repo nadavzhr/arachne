@@ -266,15 +266,6 @@ class MetaSource(PlaywrightSource):
             base_payload: dict[str, str] = {}
             if captured:
                 parsed_payload = cast(dict[str, str], captured.get("parsed", {}))
-                response_text = captured.get("response_text")
-                if isinstance(response_text, str):
-                    payloads = _parse_graphql_text(response_text)
-                    if payloads:
-                        self.log.info("captured search payload parsed: payloads=%d", len(payloads))
-                        return payloads
-                    if captured.get("status"):
-                        self.log.info("captured search response: status=%s", captured.get("status"))
-
                 lsd_token = parsed_payload.get("lsd")
                 variables = self._merge_variables(parsed_payload.get("variables"))
                 doc_id = self.params.doc_id or parsed_payload.get("doc_id") or DEFAULT_DOC_ID

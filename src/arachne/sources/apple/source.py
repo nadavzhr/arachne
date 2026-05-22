@@ -177,6 +177,8 @@ class AppleSource(arachne.sources.base.Source):
         if raw_pages is None:
             return []
 
+        # Apple API can return duplicate job records across pages
+        # so we dedupe by job ID before normalization.
         deduped: dict[str, _JobRecord] = {}
 
         for page in raw_pages:
