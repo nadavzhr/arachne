@@ -12,6 +12,7 @@ from httpx import AsyncClient
 
 from arachne.clients.http import fetch_json, fetch_paginated_json
 from arachne.config.loader import SourceConfig
+from arachne.logging_config import source_logger
 from arachne.models.job import JobPosting
 from arachne.sources.base import Source as BaseSource
 from arachne.utils.normalization import normalize_records
@@ -22,10 +23,12 @@ async def fetch(
     client: AsyncClient,
     params: dict[str, Any] | None = None,
 ) -> list[Any]:
+    log = source_logger(cfg.name or "http", __name__)
+    log.info("http request started: url=%s", cfg.url)
     raw = await fetch_json(client, cfg.url, params=params, headers=cfg.headers)
-    if isinstance(raw, list):
-        return raw
-    return [raw]
+    records = raw if isinstance(raw, list) else [raw]
+    log.info("http request completed: records=%d", len(records))
+    return records
 
 
 async def fetch_paginated(
@@ -33,7 +36,11 @@ async def fetch_paginated(
     client: AsyncClient,
     params: dict[str, Any] | None = None,
 ) -> list[Any]:
-    return await fetch_paginated_json(client, cfg.url, params=params, headers=cfg.headers)
+    log = source_logger(cfg.name or "http", __name__)
+    log.info("paginated http request started: url=%s", cfg.url)
+    records = await fetch_paginated_json(client, cfg.url, params=params, headers=cfg.headers)
+    log.info("paginated http request completed: records=%d", len(records))
+    return records
 
 
 class HTTPSource(BaseSource):

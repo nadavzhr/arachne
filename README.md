@@ -55,7 +55,7 @@ python3 src/arachne/runner.py
 
 ## Configuration
 
-* `config/global.yaml` — runtime defaults plus shared search and filter criteria.
+* `config/global.yaml` — runtime defaults plus shared search, filter, and logging criteria.
 * `config/sources.yaml` — per-source configuration (URL, headers, enabled flag, optional
   shared-schema search overrides).
 
@@ -71,6 +71,14 @@ describe the job search in terms of the shared schema (`title`, `locations`, `re
   * `{data_dir}/{source}/raw.json` — raw fetched payloads
   * `{data_dir}/{source}/jobs.unfiltered.json` — normalized job snapshots (unfiltered)
   * `{data_dir}/{source}/jobs.json` — normalized job snapshots after filters
+
+## Logging
+
+* Logging is configured centrally from `config/global.yaml`.
+* The runner writes file logs only by default:
+  * `logs/arachne.log` — full application log
+  * `logs/sources/{source}.log` — per-source log slices for parallel debugging
+* Source adapters should use `self.log` for fetch, pagination, scraping, and parsing messages.
 
 ## Supported providers
 

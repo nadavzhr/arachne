@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from arachne.models.schema import Filters, JobSearchCriteria
+
+
+class LoggingConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    enabled: bool = True
+    directory: str = "logs"
+    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    central_file: str = "arachne.log"
+    source_directory: str = "sources"
 
 
 class GlobalConfig(BaseModel):
@@ -17,6 +28,7 @@ class GlobalConfig(BaseModel):
     timeout_seconds: float = 30.0
     concurrency: int = 5
     user_agent: str = "arachne/0.1.0"
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
     search: JobSearchCriteria = Field(default_factory=JobSearchCriteria)
     filters: Filters = Field(default_factory=Filters)
 
@@ -25,6 +37,7 @@ class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     enabled: bool = True
+    name: str = ""
     url: str
     search: JobSearchCriteria = Field(default_factory=JobSearchCriteria)
     headers: dict[str, str] = Field(default_factory=dict)
@@ -42,6 +55,7 @@ def load_sources(path: Path, global_cfg: GlobalConfig | None = None) -> dict[str
     result: dict[str, SourceConfig] = {}
     for name, raw in data.items():
         source_raw = dict(raw or {})
+        source_raw["name"] = name
         source_search = source_raw.pop("search", {}) or {}
         source_filters = source_raw.pop("filters", {}) or {}
         if global_cfg is not None:

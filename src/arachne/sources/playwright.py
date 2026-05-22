@@ -31,6 +31,7 @@ class PlaywrightSource(BaseSource):
 
     async def _launch_browser(self) -> None:
         """Launch Chromium browser and create a new context/page."""
+        self.log.info("browser launch started")
         playwright = await async_playwright().start()
         self.browser = await playwright.chromium.launch(
             headless=True,
@@ -45,6 +46,7 @@ class PlaywrightSource(BaseSource):
             user_agent=user_agent,
         )
         self.page = await self.context.new_page()
+        self.log.info("browser launch completed")
 
     async def _close_browser(self) -> None:
         """Close browser and cleanup resources."""
@@ -54,6 +56,7 @@ class PlaywrightSource(BaseSource):
             await self.context.close()
         if self.browser:
             await self.browser.close()
+        self.log.info("browser closed")
 
     @abstractmethod
     async def fetch(self, client: AsyncClient) -> Any:
