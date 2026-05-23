@@ -17,7 +17,9 @@ def _import_module(name: str) -> ModuleType | None:
     module_name = f"arachne.sources.{name}"
     try:
         return importlib.import_module(module_name)
-    except Exception as exc:  # pragma: no cover - dynamic import
+    except ModuleNotFoundError as exc:  # pragma: no cover - dynamic import
+        if exc.name != module_name:
+            raise
         logger.debug("Could not import source module %s: %s", module_name, exc)
         return None
 
