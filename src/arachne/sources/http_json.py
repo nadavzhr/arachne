@@ -14,6 +14,7 @@ from arachne.clients.http import fetch_json, fetch_paginated_json
 from arachne.config.loader import SourceConfig
 from arachne.logging import source_logger
 from arachne.models.job import JobPosting
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.base import Source as BaseSource
 from arachne.utils.normalization import normalize_records
 
@@ -47,7 +48,9 @@ class HTTPSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
 
-    async def fetch(self, client: AsyncClient) -> Any:
+    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+        # Generic HTTP sources don't translate JobSearchCriteria.
+        # If it needed to be passed, they would use generic URL query params.
         return await fetch(self.cfg, client)
 
     def normalize(self, raw: Any) -> list[JobPosting]:

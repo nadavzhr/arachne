@@ -15,6 +15,7 @@ from playwright.async_api import Locator
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.google.params import GoogleParams
 from arachne.sources.playwright import PlaywrightSource
 from arachne.sources.query import build_query_string
@@ -38,7 +39,6 @@ class GoogleSource(PlaywrightSource):
 
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = GoogleParams.from_search(cfg.search)
 
     def _build_search_url(self) -> str:
         return f"{BASE_URL}jobs/results?{build_query_string(self.params.to_query())}"
@@ -70,8 +70,9 @@ class GoogleSource(PlaywrightSource):
             self.log.warning("job card parse failed: %s", exc)
             return {"title": "Error Parsing", "location": "Error", "url": "Error"}
 
-    async def fetch(self, client: AsyncClient) -> list[dict[str, str]]:
+    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, str]]:
         """Fetch jobs by rendering Google Careers page and scraping job cards."""
+        self.params = GoogleParams.from_search(search)
         try:
             await self._launch_browser()
 

@@ -8,15 +8,3 @@ logging:
   level: INFO
   central_file: arachne.log
   source_directory: sources
-search:
-  title: software engineer
-  locations:
-    - Israel
-  remote: false
-  employment_types:
-    - full_time
-  experience_levels:
-    - entry
-filters:
-  include_keywords: ["software", "software engineer", "sw", "swe", "developer", "programmer"]
-  exclude_keywords: ["intern", "contract", "student", "senior", "manager", "director", "vp", "principal", "staff", "lead"]

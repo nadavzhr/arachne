@@ -1,7 +1,7 @@
 """Source interface definitions for Arachne.
 
 Defines a small class-based interface each source should implement:
-- `fetch(client)` -> raw payload (any)
+- `fetch(client, search)` -> raw payload (any)
 - `normalize(raw)` -> list[JobPosting]
 
 Filtering is handled after normalization in the runner, so sources should not
@@ -21,6 +21,7 @@ import httpx
 from arachne.config.loader import SourceConfig
 from arachne.logging import source_logger
 from arachne.models.job import JobPosting
+from arachne.models.schema import JobSearchCriteria
 
 
 class Source(ABC):
@@ -30,7 +31,7 @@ class Source(ABC):
         self.log = source_logger(self.name, self.__class__.__module__)
 
     @abstractmethod
-    async def fetch(self, client: httpx.AsyncClient) -> Any:
+    async def fetch(self, client: httpx.AsyncClient, search: JobSearchCriteria) -> Any:
         """Fetch raw payload for this source. Return whatever the provider returns."""
 
     @abstractmethod

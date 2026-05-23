@@ -14,6 +14,7 @@ import arachne.config.loader
 import arachne.models.job
 import arachne.sources.base
 import arachne.utils.normalization
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.apple.params import AppleParams
 from arachne.utils.type_casts import as_dict, as_list
 
@@ -121,11 +122,11 @@ class AppleSource(arachne.sources.base.Source):
 
     def __init__(self, cfg: arachne.config.loader.SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = AppleParams.from_search(cfg.search)
 
     # region Public interface
 
-    async def fetch(self, client: httpx.AsyncClient) -> list[_PageDump]:
+    async def fetch(self, client: httpx.AsyncClient, search: JobSearchCriteria) -> list[_PageDump]:
+        self.params = AppleParams.from_search(search)
         search_url = self._search_url()
         self.log.info("search page prepared: url=%s", search_url)
 
@@ -301,7 +302,7 @@ if __name__ == "__main__":
             return
         async with httpx.AsyncClient() as client:
             source = AppleSource(cfg)
-            jobs = source.normalize(await source.fetch(client))
+            jobs = source.normalize(await source.fetch(client, JobSearchCriteria()))
         demo_log.info("demo completed: jobs=%d", len(jobs))
 
     asyncio.run(_run_demo())

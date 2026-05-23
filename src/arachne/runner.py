@@ -13,6 +13,7 @@ import arachne.filters
 import arachne.models.job
 from arachne.clients.http import create_client
 from arachne.config.loader import load_all
+from arachne.config.profile import SearchProfile, load_profile
 from arachne.logging import configure_logging, source_logger
 from arachne.sources import get_source_class
 from arachne.sources.base import Source
@@ -42,7 +43,11 @@ def _ensure_source(
     return normalized
 
 
-async def run_from_config(config_dir: Path) -> None:
+async def run_from_config(
+    config_dir: Path,
+    profile: SearchProfile | None = None,
+) -> None:
+    profile = profile or SearchProfile()
     global_cfg, sources = load_all(config_dir)
     run_stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     configure_logging(
@@ -53,10 +58,11 @@ async def run_from_config(config_dir: Path) -> None:
         source_directory=str(Path(global_cfg.logging.source_directory) / run_stamp),
     )
     logger.info(
-        "run started: config_dir=%s sources=%d concurrency=%d",
+        "run started: config_dir=%s sources=%d concurrency=%d profile=%s",
         config_dir,
         len(sources),
         max(1, global_cfg.concurrency),
+        profile.name,
     )
 
     data_dir = Path(global_cfg.data_dir)
@@ -70,7 +76,9 @@ async def run_from_config(config_dir: Path) -> None:
             await semaphore.acquire()
             try:
                 source.log.info("fetch started")
-                return await source.fetch(client)
+                # Ensure we type-check properly; profile is guaranteed not None here
+                prof = profile or SearchProfile()
+                return await source.fetch(client, prof.get_search_for(source.name))
             finally:
                 source.log.info("fetch finished")
                 semaphore.release()
@@ -115,7 +123,9 @@ async def run_from_config(config_dir: Path) -> None:
                 source_log.warning("normalization produced no jobs")
 
             normalized_jobs = _ensure_source(name, jobs)
-            filtered_jobs = arachne.filters.apply_filters(normalized_jobs, src.cfg.filters)
+            filtered_jobs = arachne.filters.apply_filters(
+                normalized_jobs, profile.get_filters_for(name)
+            )
             source_log.info(
                 "normalization completed: jobs=%d filtered=%d",
                 len(normalized_jobs),
@@ -132,9 +142,13 @@ async def run_from_config(config_dir: Path) -> None:
     logger.info("run completed")
 
 
-def run_sync(config_dir: Path | str = "config") -> None:
-    asyncio.run(run_from_config(Path(config_dir)))
+def run_sync(config_dir: Path | str = "config", profile_path: Path | str | None = None) -> None:
+    profile = load_profile(Path(profile_path)) if profile_path else None
+    asyncio.run(run_from_config(Path(config_dir), profile=profile))
 
 
 if __name__ == "__main__":
-    run_sync()
+    import sys
+
+    prof_path = sys.argv[1] if len(sys.argv) > 1 else "profiles/default.yaml"
+    run_sync(profile_path=prof_path)

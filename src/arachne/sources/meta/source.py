@@ -18,6 +18,7 @@ from playwright.async_api import Locator, Response
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.meta.params import MetaParams
 from arachne.sources.playwright import PlaywrightSource
 from arachne.utils.normalization import normalize_records
@@ -92,7 +93,6 @@ def _parse_graphql_text(text: str) -> list[dict[str, Any]]:
 class MetaSource(PlaywrightSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = MetaParams.from_search(cfg.search)
 
     def _response_is_job_search(self, response: Response) -> bool:
         if response.request.method != "POST":
@@ -255,7 +255,8 @@ class MetaSource(PlaywrightSource):
         payload["variables"] = json.dumps(variables)
         return payload
 
-    async def fetch(self, client: AsyncClient) -> list[dict[str, Any]]:
+    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, Any]]:
+        self.params = MetaParams.from_search(search)
         del client  # Unused.
         try:
             await self._launch_browser()
@@ -520,7 +521,7 @@ async def _run_demo() -> None:
     demo_log = source_logger("meta", __name__)
     async with AsyncClient() as client:
         src = MetaSource(cfg)
-        raw = await src.fetch(client)
+        raw = await src.fetch(client, JobSearchCriteria())
         jobs = src.normalize(raw)
         demo_log.info("demo completed: jobs=%d", len(jobs))
 

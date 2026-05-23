@@ -9,6 +9,7 @@ from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.base import Source as BaseSource
 from arachne.sources.http_json import fetch_paginated
 from arachne.sources.microsoft.params import MicrosoftParams
@@ -18,10 +19,10 @@ from arachne.utils.normalization import build_url, normalize_records
 class MicrosoftSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = MicrosoftParams.from_search(cfg.search)
 
-    async def fetch(self, client: AsyncClient) -> Any:
-        return await fetch_paginated(self.cfg, client, params=self.params.to_query())
+    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+        params = MicrosoftParams.from_search(search)
+        return await fetch_paginated(self.cfg, client, params=params.to_query())
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         items = raw

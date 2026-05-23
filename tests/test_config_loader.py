@@ -4,7 +4,6 @@ import pytest
 from pydantic import ValidationError
 
 from arachne.config.loader import load_all, load_global, load_sources
-from arachne.models.schema import EmploymentType, ExperienceLevel
 
 
 def _write_config(root: Path, global_yaml: str, sources_yaml: str) -> None:
@@ -12,27 +11,19 @@ def _write_config(root: Path, global_yaml: str, sources_yaml: str) -> None:
     root.joinpath("sources.yaml").write_text(sources_yaml, encoding="utf-8")
 
 
-def test_load_sources_merges_shared_search_and_filters(tmp_path: Path) -> None:
+def test_load_sources_ignores_legacy_search_and_filters(tmp_path: Path) -> None:
     _write_config(
         tmp_path,
         """
 data_dir: data
-search:
-  title: backend engineer
-  locations: [Israel]
-  remote: true
-  employment_types: [full_time]
-  experience_levels: [entry, mid]
-filters:
-  include_keywords: [backend]
-  exclude_keywords: [senior]
-  locations: [Israel]
 """,
         """
 microsoft:
   url: https://example.com/microsoft
   search:
     locations: ["Haifa, Israel"]
+  filters:
+    include_keywords: [backend]
 nvidia:
   url: https://example.com/nvidia
 """,
@@ -41,23 +32,20 @@ nvidia:
     _global_cfg, sources = load_all(tmp_path)
 
     microsoft = sources["microsoft"]
-    assert microsoft.search.title == "backend engineer"
-    assert microsoft.search.locations == ["Haifa, Israel"]
-    assert microsoft.search.employment_types == [EmploymentType.FULL_TIME]
-    assert microsoft.search.experience_levels == [ExperienceLevel.ENTRY, ExperienceLevel.MID]
-    assert microsoft.filters.include_keywords == ["backend"]
+    assert microsoft.url == "https://example.com/microsoft"
+    # Ensure no AttributeError on search or filters, but they are not present
+    assert not hasattr(microsoft, "search")
+    assert not hasattr(microsoft, "filters")
 
     nvidia = sources["nvidia"]
-    assert nvidia.search.locations == ["Israel"]
-    assert nvidia.filters.exclude_keywords == ["senior"]
+    assert nvidia.url == "https://example.com/nvidia"
 
 
 def test_source_config_rejects_raw_provider_params(tmp_path: Path) -> None:
     _write_config(
         tmp_path,
         """
-search:
-  title: software engineer
+data_dir: data
 """,
         """
 microsoft:

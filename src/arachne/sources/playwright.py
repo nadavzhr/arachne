@@ -13,6 +13,7 @@ from httpx import AsyncClient
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from arachne.config.loader import SourceConfig
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.base import Source as BaseSource
 
 
@@ -59,7 +60,7 @@ class PlaywrightSource(BaseSource):
         self.log.info("browser closed")
 
     @abstractmethod
-    async def fetch(self, client: AsyncClient) -> Any:
+    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
         """Fetch raw data using Playwright.
 
         Subclasses implement this to define browser interactions:

@@ -2,19 +2,11 @@ microsoft:
   enabled: true
   url: https://apply.careers.microsoft.com/api/pcsx/search
   headers: {}
-  search:
-    experience_levels:
-      - entry
-      - mid
 
 nvidia:
   enabled: true
   url: https://jobs.nvidia.com/api/pcsx/search
   headers: {}
-  search:
-    experience_levels:
-      - entry
-      - mid
 
 amazon:
   enabled: true
@@ -30,13 +22,6 @@ meta:
   enabled: true
   url: https://www.metacareers.com/jobs
   headers: {}
-  search:
-    locations:
-      - Tel Aviv, Israel
-  filters:
-    locations:
-      - Israel
-      - Tel Aviv
 
 google:
   enabled: true

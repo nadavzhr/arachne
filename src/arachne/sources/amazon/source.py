@@ -9,6 +9,7 @@ from httpx import AsyncClient
 
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
+from arachne.models.schema import JobSearchCriteria
 from arachne.sources.amazon.params import AmazonParams
 from arachne.sources.base import Source as BaseSource
 from arachne.sources.http_json import fetch as _http_fetch
@@ -18,10 +19,10 @@ from arachne.utils.normalization import build_url, normalize_records, try_parse_
 class AmazonSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
-        self.params = AmazonParams.from_search(cfg.search)
 
-    async def fetch(self, client: AsyncClient) -> Any:
-        return await _http_fetch(self.cfg, client, params=self.params.to_query())
+    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+        params = AmazonParams.from_search(search)
+        return await _http_fetch(self.cfg, client, params=params.to_query())
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         # raw is expected to be {'jobs': [...] } or a list
