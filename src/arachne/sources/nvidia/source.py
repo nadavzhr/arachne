@@ -1,22 +1,22 @@
-"""NVIDIA source implementation with per-source normalization.
-
-Nvidia returns `positionUrl` suffixes; build full URLs similarly to Microsoft.
-"""
+"""NVIDIA source implementation."""
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
 from httpx import AsyncClient
 
+from arachne.clients.http import fetch_paginated_json
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.sources.base import Source as BaseSource
-from arachne.sources.http_json import fetch_paginated
 from arachne.sources.nvidia.params import NvidiaParams
-from arachne.utils.normalization import build_url, normalize_records
+from arachne.utils.normalization import build_url, parse_datetime
+
+logger = logging.getLogger(__name__)
 
 
 class NvidiaSource(BaseSource):
@@ -25,22 +25,13 @@ class NvidiaSource(BaseSource):
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
         params = NvidiaParams.from_search(search)
-        return await fetch_paginated(self.cfg, client, params=params.to_query())
+        self.log.info("paginated http request started: url=%s", self.cfg.url)
+        return await fetch_paginated_json(
+            client, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
+        )
 
     def normalize(self, raw: Any) -> list[JobPosting]:
-        items = raw
-        if isinstance(raw, dict) and "jobs" in raw:
-            items = raw["jobs"]
-        if isinstance(items, list) and len(items) == 1 and isinstance(items[0], dict):
-            if "jobs" in items[0]:
-                items = items[0]["jobs"]
-            elif (
-                "data" in items[0]
-                and isinstance(items[0]["data"], dict)
-                and "positions" in items[0]["data"]
-            ):
-                items = items[0]["data"]["positions"]
-        if not isinstance(items, list):
+        if not isinstance(raw, list):
             return []
 
         base = None
@@ -50,16 +41,47 @@ class NvidiaSource(BaseSource):
         except Exception:
             base = None
 
-        for rec in items:
+        jobs: list[JobPosting] = []
+        for rec in raw:
             if not isinstance(rec, dict):
                 continue
-            pos = rec.get("positionUrl") or rec.get("positionUrlSuffix")
+
+            title = rec.get("name")
+            if not title:
+                continue
+
+            job_url = ""
+            pos = rec.get("positionUrl")
             if pos:
                 u = build_url(base, pos)
                 if u:
-                    rec["url"] = u
+                    job_url = u
 
-        return normalize_records("nvidia", items)
+            if not job_url:
+                continue
+
+            location_str = None
+            locs = rec.get("standardizedLocations") or rec.get("locations")
+            if isinstance(locs, list) and locs:
+                location_str = " | ".join(str(x) for x in locs)
+
+            try:
+                jobs.append(
+                    JobPosting(
+                        source=self.name,
+                        company="Nvidia",
+                        title=str(title).strip(),
+                        url=job_url,  # type: ignore
+                        location=location_str,
+                        external_id=str(rec.get("displayJobId") or rec.get("id") or ""),
+                        description=rec.get("description"),
+                        posted_at=parse_datetime(rec.get("postedTs")),
+                    )
+                )
+            except Exception as e:
+                logger.debug("Failed to map nvidia record: %s", e)
+
+        return jobs
 
 
 # Backwards-compatible name used by dynamic loader

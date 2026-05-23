@@ -55,12 +55,12 @@ python3 src/arachne/runner.py
 
 ## Configuration
 
-* `config/global.yaml` — runtime defaults plus shared search, filter, and logging criteria.
-* `config/sources.yaml` — per-source configuration (URL, headers, enabled flag, optional
-  shared-schema search overrides).
+* `config/global.yaml` — runtime defaults (timeouts, concurrency, logging).
+* `config/sources.yaml` — per-source configuration (URL, headers, enabled flag).
+* `profiles/*.yaml` — shared search criteria and filters, with optional per-source overrides.
 
-Provider-specific request parameters are translated inside the Python source adapters. YAML should
-describe the job search in terms of the shared schema (`title`, `locations`, `remote`,
+Provider-specific request parameters are translated inside the Python source adapters. Profiles
+should describe the job search in terms of the shared schema (`title`, `locations`, `remote`,
 `employment_types`, `experience_levels`) rather than raw provider query keys.
 
 ## Output
@@ -100,5 +100,5 @@ describe the job search in terms of the shared schema (`title`, `locations`, `re
 * Add a package under `src/arachne/sources/<name>/` exposing `Source` from `__init__.py`.
 * Keep provider-specific request mapping in `src/arachne/sources/<name>/params.py` and adapter
   behavior in `src/arachne/sources/<name>/source.py`.
-* Map `SourceConfig.search` into provider-specific request parameters inside the source package
-  rather than adding raw provider keys to `config/sources.yaml`.
+* Add shared search and filters in `profiles/*.yaml`, and use `sources.<name>` overrides when a
+  provider needs special casing.

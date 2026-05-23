@@ -6,22 +6,22 @@ payload fields, then replays the request with configured search input.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
-from datetime import UTC, datetime
 from typing import Any, cast
 from urllib.parse import parse_qs
 
 from httpx import AsyncClient
-from playwright.async_api import Locator, Response
+from playwright.async_api import Locator, Page, Response
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from arachne.clients.playwright import browser_session
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
+from arachne.sources.base import Source as BaseSource
 from arachne.sources.meta.params import MetaParams
-from arachne.sources.playwright import PlaywrightSource
-from arachne.utils.normalization import normalize_records
+from arachne.utils.normalization import first_any, first_str, parse_datetime
 
 META_JOBS_URL = "https://www.metacareers.com/jobs"
 META_GRAPHQL_URL = "https://www.metacareers.com/graphql"
@@ -90,7 +90,7 @@ def _parse_graphql_text(text: str) -> list[dict[str, Any]]:
     return []
 
 
-class MetaSource(PlaywrightSource):
+class MetaSource(BaseSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
 
@@ -114,23 +114,27 @@ class MetaSource(PlaywrightSource):
 
     async def _wait_for_response(
         self,
+        page: Page,
+        params: MetaParams,
         predicate: Any,
         timeout_ms: int,
     ) -> Response | None:
-        assert self.page is not None, "Page not initialized"
         try:
-            async with self.page.expect_response(predicate, timeout=timeout_ms) as response_info:
-                await self._trigger_search()
+            async with page.expect_response(predicate, timeout=timeout_ms) as response_info:
+                await self._trigger_search(page, params)
             return await response_info.value
-        except TimeoutError:
+        except PlaywrightTimeoutError:
             return None
 
-    async def _capture_graphql_payload(self) -> dict[str, Any] | None:
-        assert self.page is not None, "Page not initialized"
-        await self.page.goto(META_JOBS_URL, wait_until="domcontentloaded")
-        response = await self._wait_for_response(self._response_is_job_search, 15000)
+    async def _capture_graphql_payload(
+        self, page: Page, params: MetaParams
+    ) -> dict[str, Any] | None:
+        await page.goto(META_JOBS_URL, wait_until="domcontentloaded")
+        response = await self._wait_for_response(page, params, self._response_is_job_search, 15000)
         if response is None:
-            response = await self._wait_for_response(self._response_is_search_fallback, 8000)
+            response = await self._wait_for_response(
+                page, params, self._response_is_search_fallback, 8000
+            )
         if response is None:
             return None
 
@@ -169,8 +173,7 @@ class MetaSource(PlaywrightSource):
         search_input = variables_map.get("search_input")
         return isinstance(search_input, dict)
 
-    async def _find_search_input(self) -> Locator | None:
-        assert self.page is not None, "Page not initialized"
+    async def _find_search_input(self, page: Page) -> Locator | None:
         selectors = (
             'input[type="search"]',
             'input[placeholder*="Search"]',
@@ -178,25 +181,23 @@ class MetaSource(PlaywrightSource):
             'input[name*="search"]',
         )
         for selector in selectors:
-            locator = self.page.locator(selector).first
+            locator = page.locator(selector).first
             if await locator.count():
                 return locator
         return None
 
-    async def _trigger_search(self) -> None:
-        assert self.page is not None, "Page not initialized"
-        search_input = await self._find_search_input()
+    async def _trigger_search(self, page: Page, params: MetaParams) -> None:
+        search_input = await self._find_search_input(page)
         if search_input is None:
-            await self.page.wait_for_timeout(1500)
+            await page.wait_for_timeout(1500)
             return
         await search_input.click()
-        await search_input.fill(self.params.query)
+        await search_input.fill(params.query)
         await search_input.press("Enter")
-        await self.page.wait_for_timeout(1500)
+        await page.wait_for_timeout(1500)
 
-    async def _extract_lsd_token(self) -> str | None:
-        assert self.page is not None, "Page not initialized"
-        token = await self.page.evaluate(
+    async def _extract_lsd_token(self, page: Page) -> str | None:
+        token = await page.evaluate(
             """() => {
             const el = document.querySelector('input[name="lsd"]');
             return el ? el.value : null;
@@ -204,14 +205,14 @@ class MetaSource(PlaywrightSource):
         )
         if isinstance(token, str) and token:
             return token
-        html = await self.page.content()
+        html = await page.content()
         for pattern in LSD_PATTERNS:
             match = pattern.search(html)
             if match:
                 return match.group(1)
         return None
 
-    def _merge_variables(self, raw_variables: str | None) -> dict[str, Any]:
+    def _merge_variables(self, params: MetaParams, raw_variables: str | None) -> dict[str, Any]:
         payload: dict[str, Any] = {}
         if raw_variables:
             try:
@@ -226,13 +227,13 @@ class MetaSource(PlaywrightSource):
         if isinstance(existing, dict):
             for key, value in cast(dict[str, Any], existing).items():
                 search_input[key] = value
-        for field in sorted(self.params.model_fields_set):
+        for field in sorted(params.model_fields_set):
             if field == "doc_id":
                 continue
             if field == "query":
-                search_input["q"] = self.params.query
+                search_input["q"] = params.query
                 continue
-            search_input[field] = getattr(self.params, field)
+            search_input[field] = getattr(params, field)
         payload["search_input"] = search_input
         return payload
 
@@ -256,32 +257,31 @@ class MetaSource(PlaywrightSource):
         return payload
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, Any]]:
-        self.params = MetaParams.from_search(search)
         del client  # Unused.
-        try:
-            await self._launch_browser()
-            assert self.page is not None, "Page not initialized"
-            assert self.context is not None, "Context not initialized"
+        params = MetaParams.from_search(search)
 
-            captured = await self._capture_graphql_payload()
+        async with browser_session(user_agent=self.cfg.user_agent) as page:
+            captured = await self._capture_graphql_payload(page, params)
             base_payload: dict[str, str] = {}
             if captured:
                 parsed_payload = cast(dict[str, str], captured.get("parsed", {}))
                 lsd_token = parsed_payload.get("lsd")
-                variables = self._merge_variables(parsed_payload.get("variables"))
-                doc_id = self.params.doc_id or parsed_payload.get("doc_id") or DEFAULT_DOC_ID
+                variables = self._merge_variables(params, parsed_payload.get("variables"))
+                doc_id = params.doc_id or parsed_payload.get("doc_id") or DEFAULT_DOC_ID
                 base_payload = parsed_payload
             else:
-                lsd_token = await self._extract_lsd_token()
-                variables = self.params.to_variables()
-                doc_id = self.params.doc_id or DEFAULT_DOC_ID
+                lsd_token = await self._extract_lsd_token(page)
+                variables = params.to_variables()
+                doc_id = params.doc_id or DEFAULT_DOC_ID
 
             if not lsd_token:
                 self.log.warning("request build stopped: missing_lsd_token")
                 return []
 
             payload = self._build_payload(base_payload, lsd_token, doc_id, variables)
-            response = await self.context.request.post(
+
+            # Use page context to make the request so we share cookies/headers
+            response = await page.request.post(
                 META_GRAPHQL_URL,
                 form=payload,
                 headers={
@@ -305,8 +305,6 @@ class MetaSource(PlaywrightSource):
             else:
                 self.log.info("graphql response parsed: payloads=%d", len(payloads))
             return payloads
-        finally:
-            await self._close_browser()
 
     def normalize(self, raw: Any) -> list[JobPosting]:
         if not isinstance(raw, list):
@@ -314,15 +312,15 @@ class MetaSource(PlaywrightSource):
         items = raw
         payloads = [cast(dict[str, Any], item) for item in items if isinstance(item, dict)]
         records = self._extract_jobs(payloads)
-        return normalize_records("meta", records)
+        return self._dedupe_jobs(records)
 
-    def _extract_jobs(self, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        jobs: list[dict[str, Any]] = []
+    def _extract_jobs(self, payloads: list[dict[str, Any]]) -> list[JobPosting]:
+        jobs: list[JobPosting] = []
         for payload in payloads:
             jobs.extend(self._extract_jobs_from_payload(payload))
-        return self._dedupe_jobs(jobs)
+        return jobs
 
-    def _extract_jobs_from_payload(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    def _extract_jobs_from_payload(self, payload: dict[str, Any]) -> list[JobPosting]:
         data = payload.get("data")
         if not isinstance(data, dict):
             return []
@@ -337,8 +335,8 @@ class MetaSource(PlaywrightSource):
         fallback_items = self._search_for_job_list(data_map)
         return self._build_job_records(fallback_items)
 
-    def _build_job_records(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        records: list[dict[str, Any]] = []
+    def _build_job_records(self, items: list[dict[str, Any]]) -> list[JobPosting]:
+        records: list[JobPosting] = []
         for job in items:
             record = self._build_job_record(job)
             if record:
@@ -404,102 +402,50 @@ class MetaSource(PlaywrightSource):
 
     def _is_job_item(self, item: dict[str, Any]) -> bool:
         score = 0
-        if self._first_str(item, _TITLE_KEYS):
+        if first_str(item, _TITLE_KEYS):
             score += 1
-        if self._first_str(item, _URL_KEYS) or self._first_str(item, _ID_KEYS):
+        if first_str(item, _URL_KEYS) or first_str(item, _ID_KEYS):
             score += 1
-        if self._extract_location(item):
+        if first_str(item, _LOCATION_KEYS):
             score += 1
         return score >= 2
 
-    def _build_job_record(self, job: dict[str, Any]) -> dict[str, Any] | None:
-        title = self._first_str(job, _TITLE_KEYS)
+    def _build_job_record(self, job: dict[str, Any]) -> JobPosting | None:
+        title = first_str(job, _TITLE_KEYS)
         if not title:
             return None
 
-        url = self._first_str(job, _URL_KEYS)
-        job_id = self._first_str(job, _ID_KEYS)
+        url = first_str(job, _URL_KEYS)
+        job_id = first_str(job, _ID_KEYS)
         if not url and job_id:
             url = f"{META_JOBS_URL}/{job_id}/"
         if not url:
             return None
 
-        location = self._extract_location(job)
-        description = self._first_str(job, _DESCRIPTION_KEYS)
-        posted_raw = self._first_any(job, _POSTED_KEYS)
-        posted_at = self._coerce_posted_at(posted_raw)
+        location = first_str(job, _LOCATION_KEYS)
+        description = first_str(job, _DESCRIPTION_KEYS)
+        posted_raw = first_any(job, _POSTED_KEYS)
 
-        record: dict[str, Any] = {
-            "id": job_id,
-            "title": title,
-            "url": url,
-            "location": location,
-            "description": description,
-            "posted_at": posted_at,
-        }
-        return {key: value for key, value in record.items() if value is not None}
-
-    def _extract_location(self, record: dict[str, Any]) -> str | None:
-        value = self._first_any(record, _LOCATION_KEYS)
-        return self._format_location(value)
-
-    def _format_location(self, value: Any) -> str | None:
-        if isinstance(value, str):
-            return value.strip() or None
-        if isinstance(value, dict):
-            value_map = cast(dict[str, Any], value)
-            for key in ("name", "label", "city", "region", "country"):
-                loc = value_map.get(key)
-                if isinstance(loc, str) and loc.strip():
-                    return loc.strip()
+        try:
+            return JobPosting(
+                source=self.name,
+                company="Meta",
+                title=title,
+                url=url,  # type: ignore
+                location=location,
+                external_id=job_id,
+                description=description,
+                posted_at=parse_datetime(posted_raw),
+            )
+        except Exception as e:
+            self.log.debug("Failed to map meta record: %s", e)
             return None
-        if isinstance(value, list):
-            names: list[str] = []
-            value_list = value
-            for item in value_list:
-                if isinstance(item, str) and item.strip():
-                    names.append(item.strip())
-                elif isinstance(item, dict):
-                    item_map = cast(dict[str, Any], item)
-                    for key in ("name", "label", "city", "region", "country"):
-                        loc = item_map.get(key)
-                        if isinstance(loc, str) and loc.strip():
-                            names.append(loc.strip())
-                            break
-            if names:
-                return ", ".join(dict.fromkeys(names))
-        return None
 
-    def _coerce_posted_at(self, value: Any) -> str | None:
-        if isinstance(value, (int, float)):
-            ts = float(value)
-            if ts > 1_000_000_000_000:
-                ts = ts / 1000
-            return datetime.fromtimestamp(ts, tz=UTC).isoformat()
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        return None
-
-    def _first_str(self, record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
-        for key in keys:
-            value = record.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-        return None
-
-    def _first_any(self, record: dict[str, Any], keys: tuple[str, ...]) -> Any | None:
-        for key in keys:
-            if key in record:
-                return record[key]
-        return None
-
-    def _dedupe_jobs(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _dedupe_jobs(self, records: list[JobPosting]) -> list[JobPosting]:
         seen: set[str] = set()
-        unique: list[dict[str, Any]] = []
+        unique: list[JobPosting] = []
         for record in records:
-            key = record.get("id") or record.get("url") or record.get("title")
-            if not isinstance(key, str):
-                continue
+            key = record.external_id or str(record.url) or record.title
             if key in seen:
                 continue
             seen.add(key)
@@ -531,4 +477,6 @@ Source = MetaSource
 
 
 if __name__ == "__main__":
+    import asyncio
+
     asyncio.run(_run_demo())

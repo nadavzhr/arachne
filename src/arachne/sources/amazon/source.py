@@ -1,19 +1,26 @@
-"""Amazon source implementation with per-source request mapping and normalization."""
+"""Amazon source implementation."""
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
 from httpx import AsyncClient
 
+from arachne.clients.http import fetch_json
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.sources.amazon.params import AmazonParams
 from arachne.sources.base import Source as BaseSource
-from arachne.sources.http_json import fetch as _http_fetch
-from arachne.utils.normalization import build_url, normalize_records, try_parse_json_string
+from arachne.utils.normalization import (
+    build_url,
+    parse_datetime,
+    try_parse_json_string,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class AmazonSource(BaseSource):
@@ -22,21 +29,19 @@ class AmazonSource(BaseSource):
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
         params = AmazonParams.from_search(search)
-        return await _http_fetch(self.cfg, client, params=params.to_query())
+        self.log.info("http request started: url=%s", self.cfg.url)
+        raw = await fetch_json(
+            client, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
+        )
+        return raw if isinstance(raw, list) else [raw]
 
     def normalize(self, raw: Any) -> list[JobPosting]:
-        # raw is expected to be {'jobs': [...] } or a list
         items = raw
-        if isinstance(raw, dict) and "jobs" in raw:
+        if isinstance(raw, list) and len(raw) == 1 and isinstance(raw[0], dict):
+            items = raw[0].get("jobs", [])
+        elif isinstance(raw, dict) and "jobs" in raw:
             items = raw["jobs"]
-        # some endpoints return a list wrapping a dict that contains `jobs`
-        if (
-            isinstance(items, list)
-            and len(items) == 1
-            and isinstance(items[0], dict)
-            and "jobs" in items[0]
-        ):
-            items = items[0]["jobs"]
+
         if not isinstance(items, list):
             return []
 
@@ -47,20 +52,23 @@ class AmazonSource(BaseSource):
         except Exception:
             base = None
 
-        # massage items in-place to set `url` field
+        jobs: list[JobPosting] = []
         for rec in items:
             if not isinstance(rec, dict):
                 continue
-            # prefer the canonical job detail path when available
-            if rec.get("job_path"):
-                u = build_url(base, rec.get("job_path"))
-                if u:
-                    rec["url"] = u
-            elif rec.get("url_next_step"):
-                rec["url"] = rec.get("url_next_step")
+
+            title = rec.get("title")
+            job_path = rec.get("job_path")
+            if not title or not job_path:
+                continue
+
+            job_url = build_url(base, job_path)
+            if not job_url:
+                continue
 
             # parse locations that are JSON-encoded strings
             locs = rec.get("locations")
+            location_str = rec.get("location")
             if (
                 isinstance(locs, list)
                 and locs
@@ -68,9 +76,35 @@ class AmazonSource(BaseSource):
                 and locs[0].strip().startswith("{")
             ):
                 parsed = [try_parse_json_string(x) for x in locs]
-                rec["locations"] = parsed
+                extracted = []
+                for loc in parsed:
+                    if isinstance(loc, dict):
+                        city = loc.get("city")
+                        country = loc.get("country_code") or loc.get("country")
+                        if city and country:
+                            extracted.append(f"{city}, {country}")
+                        elif city:
+                            extracted.append(str(city))
+                if extracted:
+                    location_str = " | ".join(extracted)
 
-        return normalize_records("amazon", items)
+            try:
+                jobs.append(
+                    JobPosting(
+                        source=self.name,
+                        company="Amazon",
+                        title=str(title).strip(),
+                        url=job_url,  # type: ignore
+                        location=location_str,
+                        external_id=str(rec.get("id_icims") or rec.get("id") or ""),
+                        description=rec.get("description") or rec.get("basic_qualifications"),
+                        posted_at=parse_datetime(rec.get("posted_date")),
+                    )
+                )
+            except Exception as e:
+                logger.debug("Failed to map amazon record: %s", e)
+
+        return jobs
 
 
 # Backwards-compatible name used by dynamic loader

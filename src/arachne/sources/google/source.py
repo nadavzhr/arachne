@@ -13,13 +13,13 @@ from urllib.parse import urljoin
 from httpx import AsyncClient
 from playwright.async_api import Locator
 
+from arachne.clients.playwright import browser_session
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
+from arachne.sources.base import Source as BaseSource
 from arachne.sources.google.params import GoogleParams
-from arachne.sources.playwright import PlaywrightSource
-from arachne.sources.query import build_query_string
-from arachne.utils.normalization import normalize_records
+from arachne.utils.normalization import build_query_string
 
 # Configuration Constants
 BASE_URL = "https://www.google.com/about/careers/applications/"
@@ -30,7 +30,7 @@ CLEANUP_CHARS = " ;|•,-"
 ICON_ARTIFACT = "place"
 
 
-class GoogleSource(PlaywrightSource):
+class GoogleSource(BaseSource):
     """Scrape Google Careers using Playwright DOM scraping.
 
     Navigates to the Google Careers page, waits for job cards to render,
@@ -40,8 +40,8 @@ class GoogleSource(PlaywrightSource):
     def __init__(self, cfg: SourceConfig) -> None:
         super().__init__(cfg)
 
-    def _build_search_url(self) -> str:
-        return f"{BASE_URL}jobs/results?{build_query_string(self.params.to_query())}"
+    def _build_search_url(self, params: GoogleParams) -> str:
+        return f"{BASE_URL}jobs/results?{build_query_string(params.to_query())}"
 
     async def _parse_job_card(self, card: Locator) -> dict[str, str]:
         """Extract details cleanly from a single job card element."""
@@ -72,22 +72,21 @@ class GoogleSource(PlaywrightSource):
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, str]]:
         """Fetch jobs by rendering Google Careers page and scraping job cards."""
-        self.params = GoogleParams.from_search(search)
-        try:
-            await self._launch_browser()
+        del client  # Unused.
+        params = GoogleParams.from_search(search)
 
-            assert self.page is not None, "Page not initialized"
-            search_url = self._build_search_url()
+        async with browser_session(user_agent=self.cfg.user_agent) as page:
+            search_url = self._build_search_url(params)
             self.log.info("search page opened: url=%s", search_url)
-            await self.page.goto(search_url, wait_until="load")
+            await page.goto(search_url, wait_until="load")
 
             try:
-                await self.page.wait_for_selector("li:has(h3)", timeout=DEFAULT_TIMEOUT_MS)
+                await page.wait_for_selector("li:has(h3)", timeout=DEFAULT_TIMEOUT_MS)
             except Exception:
                 self.log.warning("job cards wait timed out: timeout_ms=%d", DEFAULT_TIMEOUT_MS)
                 return []
 
-            job_cards = await self.page.locator("li:has(h3)").all()
+            job_cards = await page.locator("li:has(h3)").all()
             self.log.info("job cards found: count=%d", len(job_cards))
 
             tasks = [self._parse_job_card(card) for card in job_cards]
@@ -99,14 +98,36 @@ class GoogleSource(PlaywrightSource):
 
             return extracted_jobs
 
-        finally:
-            await self._close_browser()
-
     def normalize(self, raw: Any) -> list[JobPosting]:
         """Convert raw job data into JobPosting models."""
         if not isinstance(raw, list):
             return []
-        return normalize_records("google", raw)
+
+        jobs: list[JobPosting] = []
+        for rec in raw:
+            if not isinstance(rec, dict):
+                continue
+
+            title = rec.get("title")
+            url = rec.get("url")
+
+            if not title or not url:
+                continue
+
+            try:
+                jobs.append(
+                    JobPosting(
+                        source=self.name,
+                        company="Google",
+                        title=str(title).strip(),
+                        url=str(url).strip(),  # type: ignore
+                        location=rec.get("location"),
+                    )
+                )
+            except Exception as e:
+                self.log.debug("Failed to map google record: %s", e)
+
+        return jobs
 
 
 # Backwards-compatible name used by dynamic loader

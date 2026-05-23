@@ -1,15 +1,18 @@
 import json
-from pathlib import Path
+import pathlib
 from typing import Any
 
 import pytest
 
-from arachne.config.profile import SearchProfile
-from arachne.runner import run_from_config
+import arachne.config.profile
+import arachne.models.job
+import arachne.models.schema
+import arachne.runner
+import arachne.sources.base
 
 
 @pytest.fixture
-def temp_config_dir(tmp_path: Path) -> Path:
+def temp_config_dir(tmp_path: pathlib.Path) -> pathlib.Path:
     config_dir = tmp_path / "config"
     config_dir.mkdir()
 
@@ -33,26 +36,57 @@ mock_source:
     return config_dir
 
 
+class DummySource(arachne.sources.base.Source):
+    async def fetch(
+        self,
+        client: Any,
+        search: arachne.models.schema.JobSearchCriteria,
+    ) -> list[dict[str, str]]:
+        del client, search  # Unused.
+        return [{"id": "1", "title": "Test Job", "url": "http://example.com/job/1"}]
+
+    def normalize(self, raw: Any) -> list[arachne.models.job.JobPosting]:
+        if not isinstance(raw, list):
+            return []
+
+        jobs: list[arachne.models.job.JobPosting] = []
+        for rec in raw:
+            if not isinstance(rec, dict):
+                continue
+            title = rec.get("title")
+            url = rec.get("url")
+            if not title or not url:
+                continue
+            try:
+                jobs.append(
+                    arachne.models.job.JobPosting(
+                        source=self.name,
+                        company="Test",
+                        title=str(title),
+                        url=str(url),  # type: ignore
+                    )
+                )
+            except Exception:
+                continue
+
+        return jobs
+
+
 @pytest.mark.anyio
 async def test_pipeline_runs_without_crashing(
-    temp_config_dir: Path, mocker: Any, tmp_path: Path
+    temp_config_dir: pathlib.Path, mocker: Any, tmp_path: pathlib.Path
 ) -> None:
     # Use tmp_path for data so it doesn't pollute real project
     global_yaml_path = temp_config_dir / "global.yaml"
     content = global_yaml_path.read_text()
     global_yaml_path.write_text(content.replace("data_dir: data", f"data_dir: {tmp_path}/data"))
 
-    # We mock out HTTPClient or the generic HTTP fetch so it doesn't do real requests
-    async def _mock_fetch(*args: Any, **kwargs: Any) -> list[Any]:
-        return [{"id": "1", "title": "Test Job", "url": "http://example.com/job/1"}]
+    mocker.patch("arachne.runner.get_source_class", return_value=DummySource)
 
-    mocker.patch("arachne.sources.http_json.fetch", side_effect=_mock_fetch)
-    mocker.patch("arachne.sources.http_json.fetch_paginated", side_effect=_mock_fetch)
-
-    # Note: Because the dynamic loader falls back to HTTPSource, our mock_source
-    # will be an instance of HTTPSource, which calls `arachne.sources.http_json.fetch`.
-
-    await run_from_config(temp_config_dir, SearchProfile())
+    await arachne.runner.run_from_config(
+        temp_config_dir,
+        arachne.config.profile.SearchProfile(),
+    )
 
     data_dir = tmp_path / "data"
     assert data_dir.exists()

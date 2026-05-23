@@ -143,6 +143,11 @@ async def run_from_config(
 
 
 def run_sync(config_dir: Path | str = "config", profile_path: Path | str | None = None) -> None:
+    if profile_path is None:
+        default_prof = Path("profiles/default.yaml")
+        if default_prof.exists():
+            profile_path = default_prof
+
     profile = load_profile(Path(profile_path)) if profile_path else None
     asyncio.run(run_from_config(Path(config_dir), profile=profile))
 

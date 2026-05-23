@@ -1,19 +1,22 @@
-"""Microsoft source implementation with per-source request mapping and normalization."""
+"""Microsoft source implementation."""
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
 from httpx import AsyncClient
 
+from arachne.clients.http import fetch_paginated_json
 from arachne.config.loader import SourceConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.sources.base import Source as BaseSource
-from arachne.sources.http_json import fetch_paginated
 from arachne.sources.microsoft.params import MicrosoftParams
-from arachne.utils.normalization import build_url, normalize_records
+from arachne.utils.normalization import build_url, parse_datetime
+
+logger = logging.getLogger(__name__)
 
 
 class MicrosoftSource(BaseSource):
@@ -22,22 +25,13 @@ class MicrosoftSource(BaseSource):
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
         params = MicrosoftParams.from_search(search)
-        return await fetch_paginated(self.cfg, client, params=params.to_query())
+        self.log.info("paginated http request started: url=%s", self.cfg.url)
+        return await fetch_paginated_json(
+            client, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
+        )
 
     def normalize(self, raw: Any) -> list[JobPosting]:
-        items = raw
-        if isinstance(raw, dict) and "jobs" in raw:
-            items = raw["jobs"]
-        if isinstance(items, list) and len(items) == 1 and isinstance(items[0], dict):
-            if "jobs" in items[0]:
-                items = items[0]["jobs"]
-            elif (
-                "data" in items[0]
-                and isinstance(items[0]["data"], dict)
-                and "positions" in items[0]["data"]
-            ):
-                items = items[0]["data"]["positions"]
-        if not isinstance(items, list):
+        if not isinstance(raw, list):
             return []
 
         base = None
@@ -47,16 +41,42 @@ class MicrosoftSource(BaseSource):
         except Exception:
             base = None
 
-        for rec in items:
+        jobs: list[JobPosting] = []
+        for rec in raw:
             if not isinstance(rec, dict):
                 continue
-            pos = rec.get("positionUrl") or rec.get("positionUrlSuffix")
+
+            title = rec.get("name")
+            if not title:
+                continue
+
+            job_url = ""
+            pos = rec.get("positionUrl")
             if pos:
                 u = build_url(base, pos)
                 if u:
-                    rec["url"] = u
+                    job_url = u
 
-        return normalize_records("microsoft", items)
+            if not job_url:
+                continue
+
+            try:
+                jobs.append(
+                    JobPosting(
+                        source=self.name,
+                        company="Microsoft",
+                        title=str(title).strip(),
+                        url=job_url,  # type: ignore
+                        location=rec.get("location") or " | ".join(rec.get("locations", [])),
+                        external_id=str(rec.get("displayJobId") or rec.get("id") or ""),
+                        description=rec.get("description"),
+                        posted_at=parse_datetime(rec.get("postedTs") or rec.get("postedDate")),
+                    )
+                )
+            except Exception as e:
+                logger.debug("Failed to map microsoft record: %s", e)
+
+        return jobs
 
 
 # Backwards-compatible name used by dynamic loader

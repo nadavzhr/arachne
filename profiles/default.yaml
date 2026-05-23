@@ -13,7 +13,7 @@ filters:
 sources:
   microsoft:
     search:
-      locations: ["Haifa, Israel"]
+      experience_levels: ["entry", "mid", "senior"]
   meta:
     search:
       locations: ["Tel Aviv, Israel"]

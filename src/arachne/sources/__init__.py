@@ -8,7 +8,6 @@ from types import ModuleType
 from typing import cast
 
 from arachne.sources.base import Source
-from arachne.sources.http_json import HTTPSource as _GenericSource
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +26,17 @@ def _import_module(name: str) -> ModuleType | None:
 def get_source_class(name: str) -> type[Source]:
     """Return a `Source` class for the given source name.
 
-    The returned value is a class that can be instantiated with a `SourceConfig`.
-    Falls back to `HTTPSource` when a specific implementation package is missing.
+    Raises:
+        ValueError: If no specific implementation package is found for the given name.
     """
     module = _import_module(name)
     if module is None:
-        return _GenericSource
+        raise ValueError(
+            f"No source adapter found for '{name}'. Please create one in arachne.sources.{name}"
+        )
+
     cls = getattr(module, "Source", None)
     if cls is None:
-        logger.debug("Source module %s has no Source class, using GenericSource", module.__name__)
-        return _GenericSource
+        raise ValueError(f"Source module arachne.sources.{name} has no 'Source' class.")
+
     return cast(type[Source], cls)

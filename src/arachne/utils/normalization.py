@@ -1,46 +1,35 @@
-"""Normalization helpers moved under utils package."""
+"""Normalization and parsing utilities for job records."""
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import quote, urlencode
 
-from pydantic import ValidationError
-
-from arachne.models.job import JobPosting
 from arachne.models.schema import EmploymentType, ExperienceLevel
 
 logger = logging.getLogger(__name__)
 
 
-_TITLE_KEYS = ("title", "position", "name", "jobTitle")
-_URL_KEYS = ("url", "applyUrl", "jobUrl", "link", "url_next_step", "positionUrl")
-_LOCATION_KEYS = ("location", "locations", "locationName")
-_ID_KEYS = ("id", "externalId", "jobId")
-_DESCRIPTION_KEYS = ("description", "desc", "summary")
-_POSTED_KEYS = ("posted_at", "postedAt", "datePosted", "posted", "posted_date")
-_REMOTE_KEYS = ("remote", "isRemote")
-_EMPLOYMENT_TYPE_KEYS = (
-    "employment_type",
-    "employmentType",
-    "jobType",
-    "timeType",
-    "schedule_type",
-)
-_EXPERIENCE_LEVEL_KEYS = ("experience_level", "experienceLevel", "seniority", "level")
+def build_query_string(params: Mapping[str, Any]) -> str:
+    """Format a dictionary as a URL query string."""
+    return urlencode(params, doseq=True, quote_via=quote)
 
 
-def _first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+def first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    """Return the first non-empty string value found in the given keys."""
     for k in keys:
         v = record.get(k)
         if isinstance(v, str) and v.strip():
             return v.strip()
-        # sometimes location is nested dict
+        # handle nested dicts (common for locations)
         if isinstance(v, dict):
             name = v.get("name") or v.get("label")
             if isinstance(name, str) and name.strip():
                 return name.strip()
+        # handle lists
         if isinstance(v, list):
             names: list[str] = []
             for item in v:
@@ -52,30 +41,41 @@ def _first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
                     if isinstance(name, str) and name.strip():
                         names.append(name.strip())
             if names:
-                return ", ".join(dict.fromkeys(names))
+                return " | ".join(dict.fromkeys(names))
     return None
 
 
-def _first_any(record: dict[str, Any], keys: tuple[str, ...]) -> Any | None:
+def first_any(record: dict[str, Any], keys: tuple[str, ...]) -> Any | None:
+    """Return the first value found for the given keys."""
     for k in keys:
         if k in record:
             return record[k]
     return None
 
 
-def _parse_datetime(value: Any) -> datetime | None:
+def parse_datetime(value: Any) -> datetime | None:
+    """Parse a date string or Unix timestamp into a datetime object."""
     if value is None:
         return None
     if isinstance(value, datetime):
         return value
+    if isinstance(value, (int, float)):
+        ts = float(value)
+        # Handle milliseconds
+        if ts > 1_000_000_000_000:
+            ts /= 1000
+        try:
+            return datetime.fromtimestamp(ts, tz=UTC)
+        except ValueError, OverflowError:
+            return None
     if isinstance(value, str):
         try:
             return datetime.fromisoformat(value)
-        except Exception:
+        except ValueError:
             try:
-                # try common short formats
-                return datetime.strptime(value, "%Y-%m-%d")
-            except Exception:
+                # try common short format
+                return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=UTC)
+            except ValueError:
                 return None
     return None
 
@@ -90,7 +90,8 @@ def _as_lower_text(value: Any) -> str:
     return str(value).strip().lower()
 
 
-def _parse_bool(value: Any) -> bool:
+def parse_bool(value: Any) -> bool:
+    """Coerce various values into a boolean."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -98,7 +99,8 @@ def _parse_bool(value: Any) -> bool:
     return bool(value)
 
 
-def _parse_employment_type(value: Any) -> EmploymentType | None:
+def parse_employment_type(value: Any) -> EmploymentType | None:
+    """Infer EmploymentType from raw text."""
     text = _as_lower_text(value)
     if not text:
         return None
@@ -113,7 +115,8 @@ def _parse_employment_type(value: Any) -> EmploymentType | None:
     return None
 
 
-def _parse_experience_level(value: Any) -> ExperienceLevel | None:
+def parse_experience_level(value: Any) -> ExperienceLevel | None:
+    """Infer ExperienceLevel from raw text."""
     text = _as_lower_text(value)
     if not text:
         return None
@@ -126,14 +129,8 @@ def _parse_experience_level(value: Any) -> ExperienceLevel | None:
     return None
 
 
-# region Public API
-
-
-def first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
-    return _first_str(record, keys)
-
-
 def build_url(base: str | None, suffix: str | None) -> str | None:
+    """Combine a base URL and a suffix into a full URL."""
     if not suffix:
         return None
     s = suffix.strip()
@@ -154,59 +151,3 @@ def try_parse_json_string(value: Any) -> Any:
         except Exception:
             return value
     return value
-
-
-def normalize_record(source: str, company: str | None, record: dict[str, Any]) -> JobPosting:
-    title = _first_str(record, _TITLE_KEYS) or ""
-    url = _first_str(record, _URL_KEYS) or ""
-    location = _first_str(record, _LOCATION_KEYS)
-    external_id = _first_any(record, _ID_KEYS)
-    description = _first_str(record, _DESCRIPTION_KEYS)
-    posted_at = _parse_datetime(_first_any(record, _POSTED_KEYS))
-    remote = _parse_bool(_first_any(record, _REMOTE_KEYS))
-    employment_type = _parse_employment_type(_first_any(record, _EMPLOYMENT_TYPE_KEYS))
-    experience_level = _parse_experience_level(_first_any(record, _EXPERIENCE_LEVEL_KEYS))
-
-    payload: dict[str, Any] = {
-        "source": source,
-        "company": company,
-        "title": title,
-        "url": url,
-        "location": location,
-        "external_id": str(external_id) if external_id is not None else None,
-        "posted_at": posted_at,
-        "description": description,
-        "remote": remote,
-        "employment_type": employment_type,
-        "experience_level": experience_level,
-    }
-
-    return JobPosting(**payload)
-
-
-def normalize_records(source: str, raw: Any, company: str | None = None) -> list[JobPosting]:
-    results: list[JobPosting] = []
-    items: list[dict[str, Any]]
-    if raw is None:
-        return results
-    if isinstance(raw, list):
-        items = [x for x in raw if isinstance(x, dict)]
-    elif isinstance(raw, dict):
-        # Some APIs return {'jobs': [...]} or similar
-        if "jobs" in raw and isinstance(raw["jobs"], list):
-            items = [x for x in raw["jobs"] if isinstance(x, dict)]
-        else:
-            items = [raw]
-    else:
-        return results
-
-    for rec in items:
-        try:
-            jp = normalize_record(source, company, rec)
-            results.append(jp)
-        except ValidationError as exc:
-            logger.debug("Skipping record from %s due to validation error: %s", source, exc)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("Unexpected error normalizing record from %s: %s", source, exc)
-
-    return results

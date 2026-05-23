@@ -99,20 +99,6 @@ class _SearchResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Parsed job record (intermediate, pre-normalization)
-# ---------------------------------------------------------------------------
-
-
-class _JobRecord(TypedDict):
-    id: str
-    title: str
-    url: str
-    location: str | None
-    description: str | None
-    posted_at: str | None
-
-
-# ---------------------------------------------------------------------------
 # Source
 # ---------------------------------------------------------------------------
 
@@ -180,7 +166,7 @@ class AppleSource(arachne.sources.base.Source):
 
         # Apple API can return duplicate job records across pages
         # so we dedupe by job ID before normalization.
-        deduped: dict[str, _JobRecord] = {}
+        deduped: dict[str, arachne.models.job.JobPosting] = {}
 
         for page in raw_pages:
             page_payload = as_dict(page)
@@ -188,10 +174,13 @@ class AppleSource(arachne.sources.base.Source):
                 continue
             for job in self._parse_results(page_payload.get("response", {})):
                 record = self._to_record(job, self.params.language)
-                if record is not None and record["id"] not in deduped:
-                    deduped[record["id"]] = record
+                if record is not None and record.external_id not in deduped:
+                    # best_id maps to external_id
+                    ext_id = record.external_id or ""
+                    if ext_id not in deduped:
+                        deduped[ext_id] = record
 
-        return arachne.utils.normalization.normalize_records("apple", list(deduped.values()))
+        return list(deduped.values())
 
     # region Parsing helpers
 
@@ -208,20 +197,28 @@ class AppleSource(arachne.sources.base.Source):
             return []
         return [_SearchResult.model_validate(item) for item in items if isinstance(item, dict)]
 
-    @staticmethod
-    def _to_record(job: _SearchResult, language: str) -> _JobRecord | None:
+    def _to_record(self, job: _SearchResult, language: str) -> arachne.models.job.JobPosting | None:
         job_id = job.best_id
         title = job.postingTitle
         if not job_id or not title:
             return None
-        return {
-            "id": job_id,
-            "title": title.strip(),
-            "url": job.build_url(language),
-            "location": job.first_location,
-            "description": job.jobSummary,
-            "posted_at": job.postingDate or job.postDateInGMT,
-        }
+
+        try:
+            return arachne.models.job.JobPosting(
+                source=self.name,
+                company="Apple",
+                title=title.strip(),
+                url=job.build_url(language),  # type: ignore
+                location=job.first_location,
+                external_id=job_id,
+                description=job.jobSummary,
+                posted_at=arachne.utils.normalization.parse_datetime(
+                    job.postingDate or job.postDateInGMT
+                ),
+            )
+        except Exception as e:
+            self.log.debug("Failed to map apple record: %s", e)
+            return None
 
     @staticmethod
     def _has_api_error(body: object) -> bool:
