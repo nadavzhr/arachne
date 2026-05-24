@@ -11,7 +11,7 @@ def _job(
     location: str | None = None,
 ) -> arachne.models.job.JobPosting:
     return arachne.models.job.JobPosting(
-        source="test",
+        spider="test",
         title=title,
         url=HttpUrl("https://example.com/jobs/1"),
         description=description,

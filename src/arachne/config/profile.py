@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from arachne.models.schema import Filters, JobSearchCriteria
 
 
-class SourceOverrides(BaseModel):
+class SpiderOverrides(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     search: JobSearchCriteria | None = None
@@ -23,11 +23,11 @@ class SearchProfile(BaseModel):
     name: str = "default"
     search: JobSearchCriteria = Field(default_factory=JobSearchCriteria)
     filters: Filters = Field(default_factory=Filters)
-    sources: dict[str, SourceOverrides] = Field(default_factory=dict)
+    spiders: dict[str, SpiderOverrides] = Field(default_factory=dict)
 
-    def get_search_for(self, source_name: str) -> JobSearchCriteria:
-        """Get the merged search criteria for a specific source."""
-        override = self.sources.get(source_name)
+    def get_search_for(self, spider_name: str) -> JobSearchCriteria:
+        """Get the merged search criteria for a specific spider."""
+        override = self.spiders.get(spider_name)
         if not override or not override.search:
             return self.search
 
@@ -36,9 +36,9 @@ class SearchProfile(BaseModel):
         merged = {**global_dump, **override_dump}
         return JobSearchCriteria(**merged)
 
-    def get_filters_for(self, source_name: str) -> Filters:
-        """Get the merged filters for a specific source."""
-        override = self.sources.get(source_name)
+    def get_filters_for(self, spider_name: str) -> Filters:
+        """Get the merged filters for a specific spider."""
+        override = self.spiders.get(spider_name)
         if not override or not override.filters:
             return self.filters
 

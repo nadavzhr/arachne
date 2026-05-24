@@ -1,11 +1,11 @@
-# Apple Jobs Source Adapter
+# Apple Jobs Spider Adapter
 
 This adapter fetches and normalizes job listings from the Apple Careers portal.
 
 ## Implementation Details
 
-- **Target URL**: Defined in `config/sources.yaml`.
-- **Normalization (`source.py`)**: 
+- **Target URL**: Defined in `config/spiders.yaml`.
+- **Normalization (`spider.py`)**: 
     - Maps Apple's internal job fields to the `JobPosting` model.
     - Handles Apple-specific location formatting and job categories.
 

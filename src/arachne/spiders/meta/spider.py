@@ -1,4 +1,4 @@
-"""Meta Careers source implementation using Playwright API replay.
+"""Meta Careers spider implementation using Playwright API replay.
 
 Captures a search request from Meta Careers (GraphQL) to obtain required
 payload fields, then replays the request with configured search input.
@@ -16,11 +16,11 @@ from playwright.async_api import Locator, Page, Response
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from arachne.clients.playwright import browser_session
-from arachne.config.loader import SourceConfig
+from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
-from arachne.sources.base import Source as BaseSource
-from arachne.sources.meta.params import MetaParams
+from arachne.spiders.base import Spider as BaseSpider
+from arachne.spiders.meta.params import MetaParams
 from arachne.utils.normalization import first_any, first_str, parse_datetime
 
 META_JOBS_URL = "https://www.metacareers.com/jobs"
@@ -90,8 +90,8 @@ def _parse_graphql_text(text: str) -> list[dict[str, Any]]:
     return []
 
 
-class MetaSource(BaseSource):
-    def __init__(self, cfg: SourceConfig) -> None:
+class MetaSpider(BaseSpider):
+    def __init__(self, cfg: SpiderConfig) -> None:
         super().__init__(cfg)
 
     def _response_is_job_search(self, response: Response) -> bool:
@@ -428,7 +428,7 @@ class MetaSource(BaseSource):
 
         try:
             return JobPosting(
-                source=self.name,
+                spider=self.name,
                 company="Meta",
                 title=title,
                 url=url,  # type: ignore
@@ -454,26 +454,26 @@ class MetaSource(BaseSource):
 
 
 async def _run_demo() -> None:
-    cfg = SourceConfig(url=META_JOBS_URL)
-    from arachne.logging import configure_logging, source_logger
+    cfg = SpiderConfig(url=META_JOBS_URL)
+    from arachne.logging import configure_logging, spider_logger
 
     configure_logging(
         enabled=True,
         directory="logs",
         level="INFO",
         central_file="arachne.log",
-        source_directory="sources",
+        spider_directory="spiders",
     )
-    demo_log = source_logger("meta", __name__)
+    demo_log = spider_logger("meta", __name__)
     async with AsyncClient() as client:
-        src = MetaSource(cfg)
+        src = MetaSpider(cfg)
         raw = await src.fetch(client, JobSearchCriteria())
         jobs = src.normalize(raw)
         demo_log.info("demo completed: jobs=%d", len(jobs))
 
 
 # Backwards-compatible name used by dynamic loader
-Source = MetaSource
+Spider = MetaSpider
 
 
 if __name__ == "__main__":

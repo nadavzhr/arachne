@@ -20,7 +20,7 @@ from arachne.services.scraper import ScraperService
 from arachne.storage.json import JsonFileJobStorage
 
 if TYPE_CHECKING:
-    from arachne.config.loader import GlobalConfig, SourceConfig
+    from arachne.config.loader import GlobalConfig, SpiderConfig
 
 app = typer.Typer(
     help="Arachne: A job scraping aggregator for tech company listings.",
@@ -32,9 +32,9 @@ console = Console()
 
 def _bootstrap(
     config_dir: Path, debug: bool = False
-) -> tuple[GlobalConfig, dict[str, SourceConfig]]:
+) -> tuple[GlobalConfig, dict[str, SpiderConfig]]:
     """Common setup for logging and config loading."""
-    global_cfg, sources = load_all(config_dir)
+    global_cfg, spiders = load_all(config_dir)
     run_stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
 
     level = "DEBUG" if debug else global_cfg.logging.level
@@ -44,11 +44,11 @@ def _bootstrap(
         directory=global_cfg.logging.directory,
         level=level,
         central_file=timestamped_log_name(global_cfg.logging.central_file, run_stamp),
-        source_directory=str(Path(global_cfg.logging.source_directory) / run_stamp),
+        spider_directory=str(Path(global_cfg.logging.spider_directory) / run_stamp),
         console_enabled=debug,
     )
 
-    return global_cfg, sources
+    return global_cfg, spiders
 
 
 @app.command()
@@ -56,10 +56,10 @@ def run(
     profile: Annotated[
         str, typer.Option("--profile", "-p", help="The name of the search profile to use.")
     ] = "default",
-    sources: Annotated[
+    spiders: Annotated[
         list[str] | None,
         typer.Option(
-            "--source", "-s", help="Specific source(s) to run. Can be used multiple times."
+            "--spider", "-s", help="Specific spider(s) to run. Can be used multiple times."
         ),
     ] = None,
     config: Annotated[
@@ -69,8 +69,8 @@ def run(
         bool, typer.Option("--debug", "-d", help="Enable debug logging to console.")
     ] = False,
 ) -> None:
-    """Execute scraping for a specific profile and optional specific sources."""
-    global_cfg, all_sources = _bootstrap(config, debug=debug)
+    """Execute scraping for a specific profile and optional specific spiders."""
+    global_cfg, all_spiders = _bootstrap(config, debug=debug)
 
     profiles_dir = Path("profiles")
     profile_service = ProfileService(profiles_dir)
@@ -81,25 +81,25 @@ def run(
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(code=1) from None
 
-    # Filter sources if --source is provided
-    if sources:
-        sources_to_run = {}
-        for name in sources:
-            if name not in all_sources:
-                msg = f"[yellow]Warning:[/yellow] Source '{name}' not found in configuration."
+    # Filter spiders if --spider is provided
+    if spiders:
+        spiders_to_run = {}
+        for name in spiders:
+            if name not in all_spiders:
+                msg = f"[yellow]Warning:[/yellow] Spider '{name}' not found in configuration."
                 console.print(msg)
                 continue
-            sources_to_run[name] = all_sources[name]
+            spiders_to_run[name] = all_spiders[name]
 
-        if not sources_to_run:
-            console.print("[red]Error:[/red] No valid sources selected.")
+        if not spiders_to_run:
+            console.print("[red]Error:[/red] No valid spiders selected.")
             raise typer.Exit(code=1)
 
-        names_str = ", ".join(sources_to_run.keys())
+        names_str = ", ".join(spiders_to_run.keys())
         msg = f"🚀 [bold blue]Running {names_str}[/bold blue] (Profile: [cyan]{prof.name}[/cyan])"
     else:
-        sources_to_run = all_sources
-        msg = f"🚀 [bold blue]Running all sources[/bold blue] (Profile: [cyan]{prof.name}[/cyan])"
+        spiders_to_run = all_spiders
+        msg = f"🚀 [bold blue]Running all spiders[/bold blue] (Profile: [cyan]{prof.name}[/cyan])"
 
     console.print(msg)
 
@@ -112,10 +112,10 @@ def run(
                 concurrency=global_cfg.concurrency,
             )
 
-            results = await scraper.run_profile(sources_to_run, prof)
+            results = await scraper.run_profile(spiders_to_run, prof)
 
             table = Table(title=f"Scraping Results: {prof.name}")
-            table.add_column("Source", style="cyan")
+            table.add_column("Spider", style="cyan")
             table.add_column("Status", style="bold")
             table.add_column("Found", justify="right")
             table.add_column("Filtered", justify="right")
@@ -161,7 +161,7 @@ def profiles() -> None:
 
 @app.command()
 def jobs(
-    source: Annotated[str | None, typer.Argument(help="Specific source to list jobs for.")] = None,
+    spider: Annotated[str | None, typer.Argument(help="Specific spider to list jobs for.")] = None,
     config: Annotated[
         Path, typer.Option("--config", "-c", help="Path to config to find data_dir.")
     ] = Path("config"),
@@ -171,18 +171,18 @@ def jobs(
     storage = JsonFileJobStorage(Path(global_cfg.data_dir))
     service = JobService(storage)
 
-    # If no source provided, list all sources defined in config
-    _, sources = load_all(config)
-    source_names = [source] if source else list(sources.keys())
+    # If no spider provided, list all spiders defined in config
+    _, spiders = load_all(config)
+    spider_names = [spider] if spider else list(spiders.keys())
 
-    all_jobs = service.get_all_jobs(source_names)
+    all_jobs = service.get_all_jobs(spider_names)
 
     if not all_jobs:
         console.print("[yellow]No jobs found in storage.[/yellow]")
         return
 
     table = Table(title=f"Latest Jobs ({len(all_jobs)})")
-    table.add_column("Source", style="dim")
+    table.add_column("Spider", style="dim")
     table.add_column("Company", style="green")
     table.add_column("Title", style="bold")
     table.add_column("Location")
@@ -191,7 +191,7 @@ def jobs(
     for job in all_jobs[:20]:  # Limit to 20 for brevity
         # Create a terminal hyperlink if the terminal supports it
         link = f"[link={job.url}][blue]Open[/blue][/link]"
-        table.add_row(job.source, job.company or "-", job.title, job.location or "-", link)
+        table.add_row(job.spider, job.company or "-", job.title, job.location or "-", link)
 
     if len(all_jobs) > 20:
         table.add_row("...", "...", f"and {len(all_jobs) - 20} more", "...", "...")

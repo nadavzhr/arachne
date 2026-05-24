@@ -5,7 +5,7 @@ The storage layer is responsible for persisting job data and raw API responses. 
 ## The Interface: `JobStorage` (`base.py`)
 Any storage implementation must satisfy the `JobStorage` abstract base class, which defines methods for:
 - `save_jobs`: Persisting a list of `JobPosting` objects.
-- `load_jobs`: Retrieving jobs for a specific source.
+- `load_jobs`: Retrieving jobs for a specific spider.
 - `save_raw`: Saving the raw, un-normalized API response for debugging.
 
 ## Implementations
@@ -19,7 +19,7 @@ The current default implementation. It saves data as human-readable JSON files i
 When using the JSON backend, the `data/` directory is organized as follows:
 ```text
 data/
-└── <source_name>/
+└── <spider_name>/
     ├── raw.json             # The last raw API response
     ├── jobs.unfiltered.json # All normalized jobs before filtering
     └── jobs.json            # Final jobs after profile filters

@@ -1,4 +1,4 @@
-"""Apple Careers source — public search API implementation."""
+"""Apple Careers spider — public search API implementation."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from pydantic import BaseModel, Field
 
 import arachne.config.loader
 import arachne.models.job
-import arachne.sources.base
+import arachne.spiders.base
 import arachne.utils.normalization
 from arachne.models.schema import JobSearchCriteria
-from arachne.sources.apple.params import AppleParams
+from arachne.spiders.apple.params import AppleParams
 from arachne.utils.type_casts import as_dict, as_list
 
 _BASE_URL = "https://jobs.apple.com"
@@ -99,14 +99,14 @@ class _SearchResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Source
+# Spider
 # ---------------------------------------------------------------------------
 
 
-class AppleSource(arachne.sources.base.Source):
+class AppleSpider(arachne.spiders.base.Spider):
     """Scrape Apple Careers via the public search API."""
 
-    def __init__(self, cfg: arachne.config.loader.SourceConfig) -> None:
+    def __init__(self, cfg: arachne.config.loader.SpiderConfig) -> None:
         super().__init__(cfg)
 
     # region Public interface
@@ -205,7 +205,7 @@ class AppleSource(arachne.sources.base.Source):
 
         try:
             return arachne.models.job.JobPosting(
-                source=self.name,
+                spider=self.name,
                 company="Apple",
                 title=title.strip(),
                 url=job.build_url(language),  # type: ignore
@@ -277,29 +277,29 @@ class AppleSource(arachne.sources.base.Source):
         return str(resp.headers.get("x-apple-csrf-token")) if resp.status_code == 200 else None
 
 
-Source = AppleSource
+Spider = AppleSpider
 
 if __name__ == "__main__":
     import asyncio
 
-    from arachne.logging import configure_logging, source_logger
+    from arachne.logging import configure_logging, spider_logger
 
     async def _run_demo() -> None:
-        global_cfg, sources = arachne.config.loader.load_all(Path("config"))
+        global_cfg, spiders = arachne.config.loader.load_all(Path("config"))
         configure_logging(
             enabled=global_cfg.logging.enabled,
             directory=global_cfg.logging.directory,
             level=global_cfg.logging.level,
             central_file=global_cfg.logging.central_file,
-            source_directory=global_cfg.logging.source_directory,
+            spider_directory=global_cfg.logging.spider_directory,
         )
-        demo_log = source_logger("apple", __name__)
-        if (cfg := sources.get("apple")) is None:
-            demo_log.warning("source config missing")
+        demo_log = spider_logger("apple", __name__)
+        if (cfg := spiders.get("apple")) is None:
+            demo_log.warning("spider config missing")
             return
         async with httpx.AsyncClient() as client:
-            source = AppleSource(cfg)
-            jobs = source.normalize(await source.fetch(client, JobSearchCriteria()))
+            spider = AppleSpider(cfg)
+            jobs = spider.normalize(await spider.fetch(client, JobSearchCriteria()))
         demo_log.info("demo completed: jobs=%d", len(jobs))
 
     asyncio.run(_run_demo())

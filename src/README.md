@@ -4,7 +4,7 @@ This directory contains the primary Python source code for the Arachne project.
 
 ## Structure
 
-- **`arachne/`**: The main package containing all application logic, including services, models, and source adapters.
+- **`arachne/`**: The main package containing all application logic, including services, models, and spider adapters.
 
 ## Development
 

@@ -1,10 +1,10 @@
 from arachne.models.schema import EmploymentType, ExperienceLevel, JobSearchCriteria
-from arachne.sources.amazon.params import AmazonParams
-from arachne.sources.apple.params import AppleParams
-from arachne.sources.google.params import GoogleParams
-from arachne.sources.meta.params import MetaParams
-from arachne.sources.microsoft.params import MicrosoftParams
-from arachne.sources.nvidia.params import NvidiaParams
+from arachne.spiders.amazon.params import AmazonParams
+from arachne.spiders.apple.params import AppleParams
+from arachne.spiders.google.params import GoogleParams
+from arachne.spiders.meta.params import MetaParams
+from arachne.spiders.microsoft.params import MicrosoftParams
+from arachne.spiders.nvidia.params import NvidiaParams
 
 
 def test_shared_search_maps_to_microsoft_query() -> None:

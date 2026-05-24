@@ -10,7 +10,7 @@ search:
 filters:
   include_keywords: ["software", "software engineer", "sw", "swe", "developer", "programmer"]
   exclude_keywords: ["intern", "contract", "student", "senior", "manager", "director", "vp", "principal", "staff", "lead"]
-sources:
+spiders:
   microsoft:
     search:
       experience_levels: ["entry", "mid", "senior"]

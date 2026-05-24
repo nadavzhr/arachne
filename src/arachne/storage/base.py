@@ -14,9 +14,9 @@ class JobStorage(ABC):
 
     @abstractmethod
     def save_jobs(
-        self, source: str, jobs: Sequence[JobPosting], category: str = "filtered"
+        self, spider: str, jobs: Sequence[JobPosting], category: str = "filtered"
     ) -> None:
-        """Save a list of job postings for a given source.
+        """Save a list of job postings for a given spider.
 
         The 'category' can be used to distinguish between 'filtered' and 'unfiltered'
         or other types of job sets.
@@ -24,11 +24,11 @@ class JobStorage(ABC):
         pass
 
     @abstractmethod
-    def save_raw(self, source: str, raw_payload: Any) -> None:
+    def save_raw(self, spider: str, raw_payload: Any) -> None:
         """Save the raw fetched payload for debugging/inspection."""
         pass
 
     @abstractmethod
-    def load_jobs(self, source: str, category: str = "filtered") -> list[JobPosting]:
-        """Load job postings for a given source and category."""
+    def load_jobs(self, spider: str, category: str = "filtered") -> list[JobPosting]:
+        """Load job postings for a given spider and category."""
         pass

@@ -1,4 +1,4 @@
-"""Microsoft source implementation."""
+"""NVIDIA spider implementation."""
 
 from __future__ import annotations
 
@@ -9,22 +9,22 @@ from urllib.parse import urlparse
 from httpx import AsyncClient
 
 from arachne.clients.http import fetch_paginated_json
-from arachne.config.loader import SourceConfig
+from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
-from arachne.sources.base import Source as BaseSource
-from arachne.sources.microsoft.params import MicrosoftParams
+from arachne.spiders.base import Spider as BaseSpider
+from arachne.spiders.nvidia.params import NvidiaParams
 from arachne.utils.normalization import build_url, parse_datetime
 
 logger = logging.getLogger(__name__)
 
 
-class MicrosoftSource(BaseSource):
-    def __init__(self, cfg: SourceConfig) -> None:
+class NvidiaSpider(BaseSpider):
+    def __init__(self, cfg: SpiderConfig) -> None:
         super().__init__(cfg)
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
-        params = MicrosoftParams.from_search(search)
+        params = NvidiaParams.from_search(search)
         self.log.info("paginated http request started: url=%s", self.cfg.url)
         return await fetch_paginated_json(
             client, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
@@ -60,24 +60,29 @@ class MicrosoftSource(BaseSource):
             if not job_url:
                 continue
 
+            location_str = None
+            locs = rec.get("standardizedLocations") or rec.get("locations")
+            if isinstance(locs, list) and locs:
+                location_str = " | ".join(str(x) for x in locs)
+
             try:
                 jobs.append(
                     JobPosting(
-                        source=self.name,
-                        company="Microsoft",
+                        spider=self.name,
+                        company="Nvidia",
                         title=str(title).strip(),
                         url=job_url,  # type: ignore
-                        location=rec.get("location") or " | ".join(rec.get("locations", [])),
+                        location=location_str,
                         external_id=str(rec.get("displayJobId") or rec.get("id") or ""),
                         description=rec.get("description"),
-                        posted_at=parse_datetime(rec.get("postedTs") or rec.get("postedDate")),
+                        posted_at=parse_datetime(rec.get("postedTs")),
                     )
                 )
             except Exception as e:
-                logger.debug("Failed to map microsoft record: %s", e)
+                logger.debug("Failed to map nvidia record: %s", e)
 
         return jobs
 
 
 # Backwards-compatible name used by dynamic loader
-Source = MicrosoftSource
+Spider = NvidiaSpider

@@ -9,7 +9,7 @@ import arachne.config.profile
 import arachne.models.job
 import arachne.models.schema
 import arachne.services.scraper
-import arachne.sources.base
+import arachne.spiders.base
 import arachne.storage.json
 from arachne.clients.http import create_client
 
@@ -29,17 +29,17 @@ logging:
 """
     (config_dir / "global.yaml").write_text(global_yaml)
 
-    sources_yaml = """
-mock_source:
+    spiders_yaml = """
+mock_spider:
   enabled: true
   url: "http://example.com/api"
 """
-    (config_dir / "sources.yaml").write_text(sources_yaml)
+    (config_dir / "spiders.yaml").write_text(spiders_yaml)
 
     return config_dir
 
 
-class DummySource(arachne.sources.base.Source):
+class DummySpider(arachne.spiders.base.Spider):
     async def fetch(
         self,
         client: Any,
@@ -63,7 +63,7 @@ class DummySource(arachne.sources.base.Source):
             try:
                 jobs.append(
                     arachne.models.job.JobPosting(
-                        source=self.name,
+                        spider=self.name,
                         company="Test",
                         title=str(title),
                         url=str(url),  # type: ignore
@@ -82,9 +82,9 @@ async def test_scraper_service_runs_without_crashing(
     # Use tmp_path for data so it doesn't pollute real project
     data_dir = tmp_path / "data"
 
-    global_cfg, sources = arachne.config.loader.load_all(temp_config_dir)
+    global_cfg, spiders = arachne.config.loader.load_all(temp_config_dir)
 
-    mocker.patch("arachne.services.scraper.get_source_class", return_value=DummySource)
+    mocker.patch("arachne.services.scraper.get_spider_class", return_value=DummySpider)
 
     storage = arachne.storage.json.JsonFileJobStorage(data_dir)
     profile = arachne.config.profile.SearchProfile()
@@ -96,14 +96,14 @@ async def test_scraper_service_runs_without_crashing(
             concurrency=global_cfg.concurrency,
         )
 
-        results = await scraper.run_profile(sources, profile)
-        assert "mock_source" in results
-        assert not isinstance(results["mock_source"], BaseException)
+        results = await scraper.run_profile(spiders, profile)
+        assert "mock_spider" in results
+        assert not isinstance(results["mock_spider"], BaseException)
 
     assert data_dir.exists()
 
-    # It should have written the mock jobs to data/mock_source/jobs.json
-    snapshot_path = data_dir / "mock_source" / "jobs.json"
+    # It should have written the mock jobs to data/mock_spider/jobs.json
+    snapshot_path = data_dir / "mock_spider" / "jobs.json"
     assert snapshot_path.exists()
 
     saved_jobs = json.loads(snapshot_path.read_text())

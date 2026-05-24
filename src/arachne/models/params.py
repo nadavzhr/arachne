@@ -1,4 +1,4 @@
-"""Base interface for source-specific search parameter models."""
+"""Base interface for spider-specific search parameter models."""
 
 from __future__ import annotations
 

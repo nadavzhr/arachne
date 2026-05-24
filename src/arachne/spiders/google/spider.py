@@ -1,4 +1,4 @@
-"""Google Careers source implementation using Playwright DOM scraping.
+"""Google Careers spider implementation using Playwright DOM scraping.
 
 Scrapes job listings from Google's careers page by rendering and extracting
 job card elements. Returns raw job data; normalization converts to JobPosting models.
@@ -14,11 +14,11 @@ from httpx import AsyncClient
 from playwright.async_api import Locator
 
 from arachne.clients.playwright import browser_session
-from arachne.config.loader import SourceConfig
+from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
-from arachne.sources.base import Source as BaseSource
-from arachne.sources.google.params import GoogleParams
+from arachne.spiders.base import Spider as BaseSpider
+from arachne.spiders.google.params import GoogleParams
 from arachne.utils.normalization import build_query_string
 
 # Configuration Constants
@@ -30,14 +30,14 @@ CLEANUP_CHARS = " ;|•,-"
 ICON_ARTIFACT = "place"
 
 
-class GoogleSource(BaseSource):
+class GoogleSpider(BaseSpider):
     """Scrape Google Careers using Playwright DOM scraping.
 
     Navigates to the Google Careers page, waits for job cards to render,
     extracts job details (title, location, URL) from each card.
     """
 
-    def __init__(self, cfg: SourceConfig) -> None:
+    def __init__(self, cfg: SpiderConfig) -> None:
         super().__init__(cfg)
 
     def _build_search_url(self, params: GoogleParams) -> str:
@@ -117,7 +117,7 @@ class GoogleSource(BaseSource):
             try:
                 jobs.append(
                     JobPosting(
-                        source=self.name,
+                        spider=self.name,
                         company="Google",
                         title=str(title).strip(),
                         url=str(url).strip(),  # type: ignore
@@ -131,4 +131,4 @@ class GoogleSource(BaseSource):
 
 
 # Backwards-compatible name used by dynamic loader
-Source = GoogleSource
+Spider = GoogleSpider

@@ -23,28 +23,28 @@ class JsonFileJobStorage(JobStorage):
         return f"jobs.{category}.json"
 
     def save_jobs(
-        self, source: str, jobs: Sequence[JobPosting], category: str = "filtered"
+        self, spider: str, jobs: Sequence[JobPosting], category: str = "filtered"
     ) -> None:
-        """Save a list of job postings for a given source to a JSON file."""
-        target_dir = self.root / source
+        """Save a list of job postings for a given spider to a JSON file."""
+        target_dir = self.root / spider
         target_dir.mkdir(parents=True, exist_ok=True)
         target_file = target_dir / self._get_filename(category)
 
         payload = [j.model_dump(mode="json") for j in jobs]
         target_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    def save_raw(self, source: str, raw_payload: Any) -> None:
+    def save_raw(self, spider: str, raw_payload: Any) -> None:
         """Save the raw fetched payload to raw.json for inspection."""
-        target_dir = self.root / source
+        target_dir = self.root / spider
         target_dir.mkdir(parents=True, exist_ok=True)
         target_file = target_dir / "raw.json"
         target_file.write_text(
             json.dumps(raw_payload, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
-    def load_jobs(self, source: str, category: str = "filtered") -> list[JobPosting]:
-        """Load job postings for a given source from a JSON file."""
-        target_file = self.root / source / self._get_filename(category)
+    def load_jobs(self, spider: str, category: str = "filtered") -> list[JobPosting]:
+        """Load job postings for a given spider from a JSON file."""
+        target_file = self.root / spider / self._get_filename(category)
         if not target_file.exists():
             return []
 

@@ -12,7 +12,7 @@ from arachne.models.schema import EmploymentType, ExperienceLevel
 class JobPosting(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    source: str
+    spider: str
     company: str | None = None
     title: str
     url: HttpUrl

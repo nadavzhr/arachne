@@ -1,4 +1,4 @@
-"""Source interface definitions for Arachne."""
+"""Spider interface definitions for Arachne."""
 
 from __future__ import annotations
 
@@ -7,19 +7,19 @@ from typing import Any
 
 import httpx
 
-from arachne.config.loader import SourceConfig
-from arachne.logging import source_logger
+from arachne.config.loader import SpiderConfig
+from arachne.logging import spider_logger
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 
 
-class Source(ABC):
-    """Abstract base class for all Arachne job sources."""
+class Spider(ABC):
+    """Abstract base class for all Arachne job spiders."""
 
-    def __init__(self, cfg: SourceConfig) -> None:
+    def __init__(self, cfg: SpiderConfig) -> None:
         self.cfg = cfg
-        self.name = cfg.name or self.__class__.__name__.removesuffix("Source").lower()
-        self.log = source_logger(self.name, self.__class__.__module__)
+        self.name = cfg.name or self.__class__.__name__.removesuffix("Spider").lower()
+        self.log = spider_logger(self.name, self.__class__.__module__)
 
     @abstractmethod
     async def fetch(self, client: httpx.AsyncClient, search: JobSearchCriteria) -> Any:

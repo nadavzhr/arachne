@@ -1,18 +1,18 @@
 # Arachne Models
 
-This directory defines the core data structures used throughout the Arachne project. By centralizing these models, we ensure type safety and a consistent interface between source adapters, services, and the storage layer.
+This directory defines the core data structures used throughout the Arachne project. By centralizing these models, we ensure type safety and a consistent interface between spider adapters, services, and the storage layer.
 
 ## Core Models
 
 ### `JobPosting` (`job.py`)
-The primary model representing a single job listing. All source adapters must normalize their raw data into this format.
-- **Fields**: `source`, `title`, `company`, `url`, `location`, `posted_at`, `remote`, etc.
+The primary model representing a single job listing. All spider adapters must normalize their raw data into this format.
+- **Fields**: `spider`, `title`, `company`, `url`, `location`, `posted_at`, `remote`, etc.
 - **Validation**: Uses Pydantic for strict type checking and string trimming.
 
 ### `JobSearchCriteria` (`schema.py`)
 Defines the parameters for a job search.
 - **Fields**: `keywords`, `locations`, `remote_only`, etc.
-- **Usage**: Passed to source adapters to build provider-specific API queries.
+- **Usage**: Passed to spider adapters to build provider-specific API queries.
 
 ### `Filters` (`schema.py`)
 Post-normalization filtering rules.

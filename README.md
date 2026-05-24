@@ -1,6 +1,18 @@
 # 🕷️ Arachne
 
+> *"A weaver so skilled, she challenged the gods themselves. Now, she weaves the scattered threads of the tech job market into a single, unbreakable web."*
+
 **Arachne** is a high-performance, asynchronous job scraping aggregator designed for tracking listings across major tech companies. It fetches, normalizes, and filters job postings from multiple provider APIs concurrently, providing a unified view of the tech job market.
+
+---
+
+## 🏛️ The Legend
+
+In Greek mythology, [**Arachne**](https://en.wikipedia.org/wiki/Arachne) was a mortal weaver of such extraordinary skill that she dared to challenge Athena, the goddess of wisdom and crafts, to a weaving contest. 
+
+Arachne's tapestry was a masterpiece of flawless technique, but it depicted the failings and indiscretions of the gods. Infuriated by the girl's hubris and the perfection of her work, Athena transformed her into a spider—condemning her to weave intricate webs for all eternity.
+
+This project carries that spirit forward: transforming the complex, messy "threads" of corporate job boards into a single, perfectly woven web of data.
 
 ---
 
@@ -9,8 +21,8 @@
 - **Concurrent Execution:** Powered by `asyncio` and `httpx` for high-throughput scraping.
 - **Unified Schema:** Normalizes heterogeneous API responses into a strict `JobPosting` Pydantic model.
 - **Profile-Based Filtering:** Decouples search criteria (keywords, location, remote) from provider-specific implementation details.
-- **Deep Observability:** Isolated per-source logging to debug individual scrapers without noise.
-- **Extensible Architecture:** Simple adapter pattern for adding new job sources in minutes.
+- **Deep Observability:** Isolated per-spider logging to debug individual scrapers without noise.
+- **Extensible Architecture:** Simple adapter pattern for adding new job spiders in minutes.
 
 ---
 
@@ -43,7 +55,7 @@ uv sync
 ## 📖 Quick Start
 
 ### Run a Scrape
-Execute the default search profile across all enabled sources:
+Execute the default search profile across all enabled spiders:
 ```bash
 uv run arachne run
 ```
@@ -68,7 +80,7 @@ Arachne is built on a modular "Service-Adapter" architecture:
 
 1.  **CLI/Entrypoint (`cli.py`):** Bootstraps the environment and orchestrates the services.
 2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages concurrency limits.
-3.  **Source Adapters:** Provider-specific modules that handle the "Fetch" (network) and "Normalize" (data mapping) phases.
+3.  **Spider Adapters:** Provider-specific modules that handle the "Fetch" (network) and "Normalize" (data mapping) phases.
 4.  **Filter Service:** Applies search profiles (keywords, remote status, etc.) to the normalized data.
 5.  **Storage Layer:** Pluggable interface for persisting data (currently defaults to JSON snapshots).
 
@@ -76,9 +88,9 @@ Arachne is built on a modular "Service-Adapter" architecture:
 graph TD
     CLI[CLI / API] --> Scraper[Scraper Service]
     Scraper --> Profile[Profile Service]
-    Scraper --> Source[Source Adapters]
-    Source --> Fetch[Fetch: HTTP/JSON]
-    Source --> Normalize[Normalize: Pydantic]
+    Scraper --> Spider[Spider Adapters]
+    Spider --> Fetch[Fetch: HTTP/JSON]
+    Spider --> Normalize[Normalize: Pydantic]
     Normalize --> Filter[Filter Service]
     Filter --> Storage[Storage Layer: JSON/SQLite]
 ```
@@ -88,20 +100,20 @@ graph TD
 ## ⚙️ Configuration
 
 -   **`config/global.yaml`**: System-wide settings (concurrency, timeouts, logging levels).
--   **`config/sources.yaml`**: Registry of supported companies and their base API endpoints.
+-   **`config/spiders.yaml`**: Registry of supported companies and their base API endpoints.
 -   **`profiles/*.yaml`**: Definitions of *what* to search for (e.g., "Software Engineer", "Remote", "London").
 
 ---
 
-## 🔌 Extending: Adding a New Source
+## 🔌 Extending: Adding a New Spider
 
 To add a new company:
-1.  Create a directory in `src/arachne/sources/<company_name>/`.
-2.  Implement a `Source` class inheriting from `arachne.sources.base.Source`.
+1.  Create a directory in `src/arachne/spiders/<company_name>/`.
+2.  Implement a `Spider` class inheriting from `arachne.spiders.base.Spider`.
 3.  Define the `fetch` (API call) and `normalize` (mapping to `JobPosting`) methods.
-4.  Register the source in `config/sources.yaml`.
+4.  Register the spider in `config/spiders.yaml`.
 
-*See [src/arachne/sources/README.md](src/arachne/sources/README.md) for a detailed guide.*
+*See [src/arachne/spiders/README.md](src/arachne/spiders/README.md) for a detailed guide.*
 
 ---
 

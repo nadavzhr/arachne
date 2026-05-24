@@ -1,14 +1,14 @@
-# Amazon Jobs Source Adapter
+# Amazon Jobs Spider Adapter
 
 This adapter fetches and normalizes job listings from the Amazon Jobs portal.
 
 ## Implementation Details
 
-- **Target URL**: Defined in `config/sources.yaml` (usually a public JSON endpoint).
+- **Target URL**: Defined in `config/spiders.yaml` (usually a public JSON endpoint).
 - **Parameters (`params.py`)**: Maps `JobSearchCriteria` to Amazon's internal query keys:
     - `keywords` -> `search_term`
     - `locations` -> `location`
-- **Normalization (`source.py`)**: 
+- **Normalization (`spider.py`)**: 
     - Maps `id_icims` or `id` to `external_id`.
     - Handles complex JSON-encoded location strings in the `locations` field.
     - Captures `basic_qualifications` and `description` for the job summary.

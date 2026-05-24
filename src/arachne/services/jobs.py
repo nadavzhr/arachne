@@ -16,13 +16,13 @@ class JobService:
     def __init__(self, storage: JobStorage) -> None:
         self.storage = storage
 
-    def get_jobs_for_source(self, source_name: str, category: str = "filtered") -> list[JobPosting]:
-        """Retrieve the most recent job postings for a given source."""
-        return self.storage.load_jobs(source_name, category=category)
+    def get_jobs_for_spider(self, spider_name: str, category: str = "filtered") -> list[JobPosting]:
+        """Retrieve the most recent job postings for a given spider."""
+        return self.storage.load_jobs(spider_name, category=category)
 
-    def get_all_jobs(self, source_names: list[str], category: str = "filtered") -> list[JobPosting]:
-        """Retrieve the most recent job postings across multiple sources."""
+    def get_all_jobs(self, spider_names: list[str], category: str = "filtered") -> list[JobPosting]:
+        """Retrieve the most recent job postings across multiple spiders."""
         all_jobs = []
-        for name in source_names:
-            all_jobs.extend(self.get_jobs_for_source(name, category=category))
+        for name in spider_names:
+            all_jobs.extend(self.get_jobs_for_spider(name, category=category))
         return all_jobs

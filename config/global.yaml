@@ -7,4 +7,4 @@ logging:
   directory: logs
   level: INFO
   central_file: arachne.log
-  source_directory: sources
+  spider_directory: spiders

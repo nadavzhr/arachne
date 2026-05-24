@@ -10,7 +10,7 @@ import httpx
 import arachne.models.job
 import arachne.models.schema
 import arachne.services.filters
-import arachne.sources.base
+import arachne.spiders.base
 
 
 @dataclasses.dataclass(frozen=True)
@@ -21,35 +21,35 @@ class SearchResult:
     normalization_error: Exception | None = None
 
 
-def _ensure_source(
-    source: str,
+def _ensure_spider(
+    spider: str,
     jobs: list[arachne.models.job.JobPosting],
 ) -> list[arachne.models.job.JobPosting]:
     normalized: list[arachne.models.job.JobPosting] = []
     for job in jobs:
-        if job.source == source:
+        if job.spider == spider:
             normalized.append(job)
         else:
-            normalized.append(job.model_copy(update={"source": source}))
+            normalized.append(job.model_copy(update={"spider": spider}))
     return normalized
 
 
 async def execute_search(
-    source: arachne.sources.base.Source,
+    spider: arachne.spiders.base.Spider,
     client: httpx.AsyncClient,
     search: arachne.models.schema.JobSearchCriteria,
     filters: arachne.models.schema.Filters | None = None,
 ) -> SearchResult:
-    raw = await source.fetch(client, search)
+    raw = await spider.fetch(client, search)
 
     normalize_error: Exception | None = None
     try:
-        normalized = source.normalize(raw)
+        normalized = spider.normalize(raw)
     except Exception as exc:
         normalize_error = exc
         normalized = []
 
-    normalized = _ensure_source(source.name, normalized)
+    normalized = _ensure_spider(spider.name, normalized)
     filtered = arachne.services.filters.apply_filters(normalized, filters)
 
     return SearchResult(

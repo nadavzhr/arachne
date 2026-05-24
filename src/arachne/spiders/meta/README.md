@@ -1,11 +1,11 @@
-# Meta Careers Source Adapter
+# Meta Careers Spider Adapter
 
 This adapter fetches and normalizes job listings from the Meta Careers portal.
 
 ## Implementation Details
 
-- **Target URL**: Defined in `config/sources.yaml`.
-- **Normalization (`source.py`)**: 
+- **Target URL**: Defined in `config/spiders.yaml`.
+- **Normalization (`spider.py`)**: 
     - Maps Meta's job schema to the `JobPosting` model.
     - Specifically handles remote-friendly flags and team-based classification.
 

@@ -4,11 +4,11 @@ import pytest
 import arachne.config.loader
 import arachne.models.job
 import arachne.models.schema
-import arachne.sources.base
+import arachne.spiders.base
 from arachne.services import search as search_service
 
 
-class DummySource(arachne.sources.base.Source):
+class DummySpider(arachne.spiders.base.Spider):
     async def fetch(
         self,
         client: httpx.AsyncClient,
@@ -35,7 +35,7 @@ class DummySource(arachne.sources.base.Source):
             try:
                 jobs.append(
                     arachne.models.job.JobPosting(
-                        source="other",
+                        spider="other",
                         company="Test",
                         title=str(title),
                         url=str(url),  # type: ignore
@@ -47,7 +47,7 @@ class DummySource(arachne.sources.base.Source):
         return jobs
 
 
-class BrokenSource(arachne.sources.base.Source):
+class BrokenSpider(arachne.spiders.base.Spider):
     async def fetch(
         self,
         client: httpx.AsyncClient,
@@ -62,9 +62,9 @@ class BrokenSource(arachne.sources.base.Source):
 
 
 @pytest.mark.anyio
-async def test_execute_search_applies_filters_and_source() -> None:
-    cfg = arachne.config.loader.SourceConfig(url="https://example.com", name="dummy")
-    source = DummySource(cfg)
+async def test_execute_search_applies_filters_and_spider() -> None:
+    cfg = arachne.config.loader.SpiderConfig(url="https://example.com", name="dummy")
+    spider = DummySpider(cfg)
     filters = arachne.models.schema.Filters(
         include_keywords=["engineer"],
         exclude_keywords=["intern"],
@@ -72,7 +72,7 @@ async def test_execute_search_applies_filters_and_source() -> None:
 
     async with httpx.AsyncClient() as client:
         result = await search_service.execute_search(
-            source=source,
+            spider=spider,
             client=client,
             search=arachne.models.schema.JobSearchCriteria(),
             filters=filters,
@@ -80,18 +80,18 @@ async def test_execute_search_applies_filters_and_source() -> None:
 
     assert result.raw[0]["id"] == "1"
     assert result.normalization_error is None
-    assert {job.source for job in result.normalized} == {"dummy"}
+    assert {job.spider for job in result.normalized} == {"dummy"}
     assert [job.title for job in result.filtered] == ["Software Engineer"]
 
 
 @pytest.mark.anyio
 async def test_execute_search_reports_normalize_errors() -> None:
-    cfg = arachne.config.loader.SourceConfig(url="https://example.com", name="broken")
-    source = BrokenSource(cfg)
+    cfg = arachne.config.loader.SpiderConfig(url="https://example.com", name="broken")
+    spider = BrokenSpider(cfg)
 
     async with httpx.AsyncClient() as client:
         result = await search_service.execute_search(
-            source=source,
+            spider=spider,
             client=client,
             search=arachne.models.schema.JobSearchCriteria(),
         )

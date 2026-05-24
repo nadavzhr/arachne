@@ -1,4 +1,4 @@
-"""Amazon source implementation."""
+"""Amazon spider implementation."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from urllib.parse import urlparse
 from httpx import AsyncClient
 
 from arachne.clients.http import fetch_json
-from arachne.config.loader import SourceConfig
+from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
-from arachne.sources.amazon.params import AmazonParams
-from arachne.sources.base import Source as BaseSource
+from arachne.spiders.amazon.params import AmazonParams
+from arachne.spiders.base import Spider as BaseSpider
 from arachne.utils.normalization import (
     build_url,
     parse_datetime,
@@ -23,8 +23,8 @@ from arachne.utils.normalization import (
 logger = logging.getLogger(__name__)
 
 
-class AmazonSource(BaseSource):
-    def __init__(self, cfg: SourceConfig) -> None:
+class AmazonSpider(BaseSpider):
+    def __init__(self, cfg: SpiderConfig) -> None:
         super().__init__(cfg)
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
@@ -91,7 +91,7 @@ class AmazonSource(BaseSource):
             try:
                 jobs.append(
                     JobPosting(
-                        source=self.name,
+                        spider=self.name,
                         company="Amazon",
                         title=str(title).strip(),
                         url=job_url,  # type: ignore
@@ -108,4 +108,4 @@ class AmazonSource(BaseSource):
 
 
 # Backwards-compatible name used by dynamic loader
-Source = AmazonSource
+Spider = AmazonSpider
