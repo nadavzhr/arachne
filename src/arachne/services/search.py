@@ -7,9 +7,9 @@ from typing import Any
 
 import httpx
 
-import arachne.filters
 import arachne.models.job
 import arachne.models.schema
+import arachne.services.filters
 import arachne.sources.base
 
 
@@ -50,7 +50,7 @@ async def execute_search(
         normalized = []
 
     normalized = _ensure_source(source.name, normalized)
-    filtered = arachne.filters.apply_filters(normalized, filters)
+    filtered = arachne.services.filters.apply_filters(normalized, filters)
 
     return SearchResult(
         raw=raw,

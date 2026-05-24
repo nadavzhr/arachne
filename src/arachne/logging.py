@@ -59,6 +59,15 @@ class SourceFileHandler(logging.Handler):
         return self._handlers[safe_name]
 
 
+def timestamped_log_name(filename: str, stamp: str) -> str:
+    """Append a timestamp to a filename while preserving the extension."""
+    path = Path(filename)
+    suffix = path.suffix
+    if suffix:
+        return f"{path.stem}-{stamp}{suffix}"
+    return f"{path.name}-{stamp}"
+
+
 def configure_logging(
     *,
     enabled: bool,
@@ -66,45 +75,63 @@ def configure_logging(
     level: str,
     central_file: str,
     source_directory: str,
-) -> None:
-    """Configure file-only logging for the application."""
+    console_enabled: bool = False,
+) -> int:
+    """Configure logging for the application.
+
+    Returns the numeric log level configured.
+    """
 
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
         handler.close()
 
-    if not enabled:
-        root_logger.addHandler(logging.NullHandler())
-        return
-
-    log_dir = Path(directory)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    source_log_dir = log_dir / source_directory
-
-    central_log_path = log_dir / central_file
-
     log_level = logging.getLevelName(level.upper())
     if not isinstance(log_level, int):
         log_level = logging.INFO
 
+    if not enabled and not console_enabled:
+        root_logger.addHandler(logging.NullHandler())
+        return log_level
+
     formatter = SourceFormatter(_DEFAULT_FORMAT, datefmt=_DATE_FORMAT)
-
-    central_handler = logging.FileHandler(central_log_path, mode="w", encoding="utf-8")
-    central_handler.setLevel(log_level)
-    central_handler.setFormatter(formatter)
-
-    source_handler = SourceFileHandler(source_log_dir)
-    source_handler.setLevel(log_level)
-    source_handler.setFormatter(formatter)
-
     root_logger.setLevel(log_level)
-    root_logger.addHandler(central_handler)
-    root_logger.addHandler(source_handler)
+
+    if enabled:
+        log_dir = Path(directory)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        source_log_dir = log_dir / source_directory
+        central_log_path = log_dir / central_file
+
+        central_handler = logging.FileHandler(central_log_path, mode="w", encoding="utf-8")
+        central_handler.setLevel(log_level)
+        central_handler.setFormatter(formatter)
+
+        source_handler = SourceFileHandler(source_log_dir)
+        source_handler.setLevel(log_level)
+        source_handler.setFormatter(formatter)
+
+        root_logger.addHandler(central_handler)
+        root_logger.addHandler(source_handler)
+
+    if console_enabled:
+        from rich.logging import RichHandler
+
+        console_handler = RichHandler(
+            rich_tracebacks=True,
+            show_path=False,
+            omit_repeated_times=False,
+        )
+        # Use a simpler format for console to avoid double timestamps from Rich
+        console_handler.setFormatter(logging.Formatter("[%(source_name)s] %(message)s"))
+        root_logger.addHandler(console_handler)
 
     logging.captureWarnings(True)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+    return log_level
 
 
 def source_logger(source_name: str, logger_name: str) -> logging.LoggerAdapter[Any]:

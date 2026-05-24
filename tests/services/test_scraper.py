@@ -4,11 +4,14 @@ from typing import Any
 
 import pytest
 
+import arachne.config.loader
 import arachne.config.profile
 import arachne.models.job
 import arachne.models.schema
-import arachne.runner
+import arachne.services.scraper
 import arachne.sources.base
+import arachne.storage.json
+from arachne.clients.http import create_client
 
 
 @pytest.fixture
@@ -73,22 +76,30 @@ class DummySource(arachne.sources.base.Source):
 
 
 @pytest.mark.anyio
-async def test_pipeline_runs_without_crashing(
+async def test_scraper_service_runs_without_crashing(
     temp_config_dir: pathlib.Path, mocker: Any, tmp_path: pathlib.Path
 ) -> None:
     # Use tmp_path for data so it doesn't pollute real project
-    global_yaml_path = temp_config_dir / "global.yaml"
-    content = global_yaml_path.read_text()
-    global_yaml_path.write_text(content.replace("data_dir: data", f"data_dir: {tmp_path}/data"))
+    data_dir = tmp_path / "data"
+
+    global_cfg, sources = arachne.config.loader.load_all(temp_config_dir)
 
     mocker.patch("arachne.services.scraper.get_source_class", return_value=DummySource)
 
-    await arachne.runner.run_from_config(
-        temp_config_dir,
-        arachne.config.profile.SearchProfile(),
-    )
+    storage = arachne.storage.json.JsonFileJobStorage(data_dir)
+    profile = arachne.config.profile.SearchProfile()
 
-    data_dir = tmp_path / "data"
+    async with create_client(global_cfg.timeout_seconds, global_cfg.user_agent) as client:
+        scraper = arachne.services.scraper.ScraperService(
+            storage=storage,
+            client=client,
+            concurrency=global_cfg.concurrency,
+        )
+
+        results = await scraper.run_profile(sources, profile)
+        assert "mock_source" in results
+        assert not isinstance(results["mock_source"], BaseException)
+
     assert data_dir.exists()
 
     # It should have written the mock jobs to data/mock_source/jobs.json
