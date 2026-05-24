@@ -44,7 +44,7 @@ def _time_type(employment_types: list[EmploymentType]) -> str:
 class NvidiaParams(BaseParams):
     domain: str = Field(default="nvidia.com")
     query: str = Field(default="software engineering")
-    location: str = Field(default="Israel")
+    location: str = Field(default="")
     start: str = Field(default="0")
     filter_include_remote: str = Field(default="1")
     filter_job_category: str = Field(default="engineering")

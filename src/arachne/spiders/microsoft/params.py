@@ -38,7 +38,7 @@ def _seniority(
 class MicrosoftParams(BaseParams):
     domain: str = Field(default="microsoft.com")
     query: str = Field(default="software engineer")
-    location: str = Field(default="Israel")
+    location: str = Field(default="")
     start: str = Field(default="0")
     filter_include_remote: str = Field(default="1")
     hl: str = Field(default="en")

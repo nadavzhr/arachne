@@ -37,7 +37,7 @@ def _employment_type(
 
 
 class GoogleParams(BaseParams):
-    location: list[str] = Field(default_factory=lambda: ["Israel"])
+    location: list[str] = Field(default_factory=list)
     target_level: list[Literal["EARLY", "MID"]] = Field(default_factory=_default_target_levels)
     employment_type: Literal["FULL_TIME", "PART_TIME", "INTERN", "TEMPORARY"] = Field(
         default="FULL_TIME"
@@ -45,8 +45,11 @@ class GoogleParams(BaseParams):
 
     @classmethod
     def from_search(cls, search: JobSearchCriteria) -> GoogleParams:
+        locations = search.locations
+        if not locations and search.remote:
+            locations = ["Remote"]
         return cls(
-            location=search.locations,
+            location=locations,
             target_level=_target_levels(search.experience_levels),
             employment_type=_employment_type(search.employment_types),
         )

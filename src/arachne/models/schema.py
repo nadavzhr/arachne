@@ -49,7 +49,7 @@ class JobSearchCriteria(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     title: str = "software engineer"
-    locations: list[str] = Field(default_factory=lambda: ["Israel"])
+    locations: list[str] = Field(default_factory=list)
     remote: bool = True
     employment_types: list[EmploymentType] = Field(default_factory=_default_employment_types)
     experience_levels: list[ExperienceLevel] = Field(default_factory=_default_experience_levels)

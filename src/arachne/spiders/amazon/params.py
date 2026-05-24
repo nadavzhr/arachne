@@ -31,7 +31,7 @@ def _country_codes(locations: list[str]) -> list[str]:
         normalized = location.lower().split(",")[-1].strip()
         if normalized in country_codes:
             codes.append(country_codes[normalized])
-    return list(dict.fromkeys(codes)) or ["ISR"]
+    return list(dict.fromkeys(codes))
 
 
 def _schedule_types(employment_types: list[EmploymentType]) -> list[str]:
@@ -57,9 +57,9 @@ class AmazonParams(BaseParams):
     base_query: str = Field(default="software engineer")
     category: list[str] = Field(default_factory=lambda: ["software-development"])
     schedule_type_id: list[str] = Field(default_factory=lambda: ["Full-Time"])
-    normalized_country_code: list[str] = Field(default_factory=lambda: ["ISR"])
+    normalized_country_code: list[str] = Field(default_factory=list)
     industry_experience: list[str] = Field(default_factory=lambda: ["one_to_three_years"])
-    loc_query: str = Field(default="Israel")
+    loc_query: str = Field(default="")
     result_limit: str = Field(default="100")
     offset: str = Field(default="0")
     sort: str = Field(default="relevant")

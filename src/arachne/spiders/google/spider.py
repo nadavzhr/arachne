@@ -43,7 +43,9 @@ class GoogleSpider(BaseSpider):
     def _build_search_url(self, params: GoogleParams) -> str:
         return f"{BASE_URL}jobs/results?{build_query_string(params.to_query())}"
 
-    async def _parse_job_card(self, card: Locator) -> dict[str, str]:
+    async def _parse_job_card(
+        self, card: Locator, preferred_locations: list[str]
+    ) -> dict[str, str]:
         """Extract details cleanly from a single job card element."""
         try:
             title_el = card.locator("h3")
@@ -53,10 +55,15 @@ class GoogleSpider(BaseSpider):
             href = await anchor.get_attribute("href") if await anchor.count() else None
             job_url = urljoin(BASE_URL, href.split("?")[0]) if href else "Link not found"
 
-            loc_el = card.locator(
-                '[aria-label*="Location"], .gc-job-card__location, span:has-text("Israel")'
-            ).first
-            raw_location = await loc_el.inner_text() if await loc_el.count() else "Israel"
+            # Build a dynamic locator for location. We try standard attributes/classes first,
+            # then fall back to spans containing any of our preferred location names.
+            fallback_location = preferred_locations[0] if preferred_locations else "Remote"
+            loc_selectors = ['[aria-label*="Location"]', ".gc-job-card__location"]
+            for loc in preferred_locations:
+                loc_selectors.append(f'span:has-text("{loc}")')
+
+            loc_el = card.locator(", ".join(loc_selectors)).first
+            raw_location = await loc_el.inner_text() if await loc_el.count() else fallback_location
 
             cleaned_lines = [
                 line.strip(CLEANUP_CHARS)
@@ -89,7 +96,7 @@ class GoogleSpider(BaseSpider):
             job_cards = await page.locator("li:has(h3)").all()
             self.log.info("job cards found: count=%d", len(job_cards))
 
-            tasks = [self._parse_job_card(card) for card in job_cards]
+            tasks = [self._parse_job_card(card, params.location) for card in job_cards]
             extracted_jobs = await asyncio.gather(*tasks)
 
             # Filter out parsing errors

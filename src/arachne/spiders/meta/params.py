@@ -18,7 +18,7 @@ def _roles(employment_types: list[EmploymentType]) -> list[str]:
 
 class MetaParams(BaseParams):
     query: str = Field(default="software engineer")
-    offices: list[str] = Field(default_factory=lambda: ["Tel Aviv, Israel"])
+    offices: list[str] = Field(default_factory=list)
     roles: list[str] = Field(default_factory=lambda: ["Full time employment"])
     divisions: list[str] = Field(default_factory=list)
     leadership_levels: list[str] = Field(default_factory=list)
