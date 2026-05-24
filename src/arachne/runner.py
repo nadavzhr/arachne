@@ -7,14 +7,12 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
-import arachne.filters
-import arachne.models.job
 from arachne.clients.http import create_client
 from arachne.config.loader import load_all
 from arachne.config.profile import SearchProfile, load_profile
 from arachne.logging import configure_logging, source_logger
+from arachne.services import search as search_service
 from arachne.sources import get_source_class
 from arachne.sources.base import Source
 from arachne.storage.json import JsonFileJobStorage
@@ -28,19 +26,6 @@ def _timestamped_log_name(filename: str, stamp: str) -> str:
     if suffix:
         return f"{path.stem}-{stamp}{suffix}"
     return f"{path.name}-{stamp}"
-
-
-def _ensure_source(
-    source: str,
-    jobs: list[arachne.models.job.JobPosting],
-) -> list[arachne.models.job.JobPosting]:
-    normalized: list[arachne.models.job.JobPosting] = []
-    for job in jobs:
-        if job.source == source:
-            normalized.append(job)
-        else:
-            normalized.append(job.model_copy(update={"source": source}))
-    return normalized
 
 
 async def run_from_config(
@@ -72,19 +57,23 @@ async def run_from_config(
         concurrency_limit = max(1, global_cfg.concurrency)
         semaphore = asyncio.Semaphore(concurrency_limit)
 
-        async def _fetch_with_limit(source: Source) -> Any:
+        async def _fetch_with_limit(source: Source) -> search_service.SearchResult:
             await semaphore.acquire()
             try:
                 source.log.info("fetch started")
                 # Ensure we type-check properly; profile is guaranteed not None here
                 prof = profile or SearchProfile()
-                return await source.fetch(client, prof.get_search_for(source.name))
+                return await search_service.execute_search(
+                    source=source,
+                    client=client,
+                    search=prof.get_search_for(source.name),
+                    filters=prof.get_filters_for(source.name),
+                )
             finally:
                 source.log.info("fetch finished")
                 semaphore.release()
 
-        tasks: dict[str, asyncio.Task[Any]] = {}
-        sources_instances: dict[str, Source] = {}
+        tasks: dict[str, asyncio.Task[search_service.SearchResult]] = {}
         for name, cfg in sources.items():
             source_log = source_logger(name, __name__)
             if not cfg.enabled:
@@ -92,7 +81,6 @@ async def run_from_config(
                 continue
             SourceCls = get_source_class(name)
             src = SourceCls(cfg)
-            sources_instances[name] = src
             source_log.info("source scheduled: adapter=%s", SourceCls.__name__)
             tasks[name] = asyncio.create_task(_fetch_with_limit(src))
 
@@ -100,7 +88,7 @@ async def run_from_config(
 
         for (name, _task), result in zip(tasks.items(), results, strict=False):
             source_log = source_logger(name, __name__)
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 source_log.error(
                     "fetch failed: %s",
                     result,
@@ -108,24 +96,23 @@ async def run_from_config(
                 )
                 continue
             # Persist raw fetched payload for inspection
-            storage.save_raw(name, result)
+            storage.save_raw(name, result.raw)
             source_log.info("raw snapshot written")
 
             # Normalize fetched payload into JobPosting models using per-source normalizer
-            src = sources_instances[name]
-            try:
-                source_log.info("normalization started")
-                jobs = src.normalize(result)
-            except Exception as exc:
-                source_log.exception("normalization failed: %s", exc)
-                jobs = []
-            if not jobs:
+            if result.normalization_error:
+                exc = result.normalization_error
+                source_log.error(
+                    "normalization failed: %s",
+                    exc,
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                )
+
+            normalized_jobs = result.normalized
+            if not normalized_jobs:
                 source_log.warning("normalization produced no jobs")
 
-            normalized_jobs = _ensure_source(name, jobs)
-            filtered_jobs = arachne.filters.apply_filters(
-                normalized_jobs, profile.get_filters_for(name)
-            )
+            filtered_jobs = result.filtered
             source_log.info(
                 "normalization completed: jobs=%d filtered=%d",
                 len(normalized_jobs),
