@@ -1,104 +1,117 @@
-# 🕷️ Arachne — Job Aggregation and Normalization
+# 🕷️ Arachne
 
-[![Python](https://img.shields.io/badge/python-3.14-blue?logo=python\&style=flat-square)](https://www.python.org/)
-[![Status](https://img.shields.io/badge/status-prototype-yellow?style=flat-square)]()
-[![httpx](https://img.shields.io/badge/httpx-async%20client-green?style=flat-square)](https://www.python-httpx.org/)
+**Arachne** is a high-performance, asynchronous job scraping aggregator designed for tracking listings across major tech companies. It fetches, normalizes, and filters job postings from multiple provider APIs concurrently, providing a unified view of the tech job market.
 
-Arachne (uh-RACK-nee) is a small asynchronous job listing aggregator that fetches job postings from multiple
-provider APIs, normalizes them into a common schema, and persists snapshots locally for later analysis.
+---
 
-The project is currently in an early prototype stage. Right now, normalized snapshots are written
-to JSON files on disk to keep iteration simple and transparent during development. The longer-term
-goal is to move local storage to SQLite and eventually expose the aggregated data to a frontend
-application.
+## 🚀 Features
 
-## Key ideas:
+- **Concurrent Execution:** Powered by `asyncio` and `httpx` for high-throughput scraping.
+- **Unified Schema:** Normalizes heterogeneous API responses into a strict `JobPosting` Pydantic model.
+- **Profile-Based Filtering:** Decouples search criteria (keywords, location, remote) from provider-specific implementation details.
+- **Deep Observability:** Isolated per-source logging to debug individual scrapers without noise.
+- **Extensible Architecture:** Simple adapter pattern for adding new job sources in minutes.
 
-* Fetch provider payloads concurrently using an async HTTP client.
-* Normalize heterogeneous provider responses into a single `JobPosting` model.
-* Keep user-facing search configuration provider-neutral.
-* Persist raw provider payloads and normalized snapshots locally.
-* Keep the architecture simple and easy to extend with additional providers.
+---
 
-## Features
+## 🛠️ Installation
 
-* Asynchronous HTTP fetching with `httpx`.
-* Per-source fetchers and normalizers with a consistent `fetch` / `normalize` interface.
-* Validation and normalization via Pydantic models (`JobPosting`).
-* Local JSON persistence of raw payloads and normalized snapshots.
+### 1. Install `uv` (Recommended)
+Arachne uses `uv` for lightning-fast dependency management and project isolation.
 
-## Quick start
+**macOS/Linux:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-* Ensure a Python 3.14+ virtual environment is activated.
-* Install dependencies using [`uv`](https://github.com/astral-sh/uv) (recommended):
+**Windows:**
+```powershell
+powershell -c "ir https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 2. Setup Project
+Clone the repository and sync dependencies:
 
 ```bash
+git clone https://github.com/your-repo/arachne.git
+cd arachne
 uv sync
 ```
 
-* Run the runner to fetch and snapshot all configured sources:
+---
 
+## 📖 Quick Start
+
+### Run a Scrape
+Execute the default search profile across all enabled sources:
 ```bash
-uv run arachne
+uv run arachne run
 ```
 
-* Alternatively, you can install dependencies with pip:
+### View Results
+List a summary of the latest scraped jobs from the CLI:
 ```bash
-pip install -r requirements.txt
+uv run arachne jobs
 ```
 
-* Run using python directly:
-
+### List Profiles
+See all available search configurations:
 ```bash
-python3 src/arachne/runner.py
+uv run arachne profiles
 ```
 
-## Configuration
+---
 
-* `config/global.yaml` — runtime defaults (timeouts, concurrency, logging).
-* `config/sources.yaml` — per-source configuration (URL, headers, enabled flag).
-* `profiles/*.yaml` — shared search criteria and filters, with optional per-source overrides.
+## 🏗️ Architecture
 
-Provider-specific request parameters are translated inside the Python source adapters. Profiles
-should describe the job search in terms of the shared schema (`title`, `locations`, `remote`,
-`employment_types`, `experience_levels`) rather than raw provider query keys.
+Arachne is built on a modular "Service-Adapter" architecture:
 
-## Output
+1.  **CLI/Entrypoint (`cli.py`):** Bootstraps the environment and orchestrates the services.
+2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages concurrency limits.
+3.  **Source Adapters:** Provider-specific modules that handle the "Fetch" (network) and "Normalize" (data mapping) phases.
+4.  **Filter Service:** Applies search profiles (keywords, remote status, etc.) to the normalized data.
+5.  **Storage Layer:** Pluggable interface for persisting data (currently defaults to JSON snapshots).
 
-* Data is written under the configured data directory (default `data/`). For each source the
-  runner writes:
+```mermaid
+graph TD
+    CLI[CLI / API] --> Scraper[Scraper Service]
+    Scraper --> Profile[Profile Service]
+    Scraper --> Source[Source Adapters]
+    Source --> Fetch[Fetch: HTTP/JSON]
+    Source --> Normalize[Normalize: Pydantic]
+    Normalize --> Filter[Filter Service]
+    Filter --> Storage[Storage Layer: JSON/SQLite]
+```
 
-  * `{data_dir}/{source}/raw.json` — raw fetched payloads
-  * `{data_dir}/{source}/jobs.unfiltered.json` — normalized job snapshots (unfiltered)
-  * `{data_dir}/{source}/jobs.json` — normalized job snapshots after filters
+---
 
-## Logging
+## ⚙️ Configuration
 
-* Logging is configured centrally from `config/global.yaml`.
-* The runner writes file logs only by default:
-  * `logs/arachne.log` — full application log
-  * `logs/sources/{source}.log` — per-source log slices for parallel debugging
-* Source adapters should use `self.log` for fetch, pagination, scraping, and parsing messages.
+-   **`config/global.yaml`**: System-wide settings (concurrency, timeouts, logging levels).
+-   **`config/sources.yaml`**: Registry of supported companies and their base API endpoints.
+-   **`profiles/*.yaml`**: Definitions of *what* to search for (e.g., "Software Engineer", "Remote", "London").
 
-## Supported providers
+---
 
-* Microsoft Careers
-* NVIDIA Careers
-* Amazon Jobs
-* Google Careers
-* Apple Careers
-* Meta Careers
+## 🔌 Extending: Adding a New Source
 
-## Roadmap
+To add a new company:
+1.  Create a directory in `src/arachne/sources/<company_name>/`.
+2.  Implement a `Source` class inheriting from `arachne.sources.base.Source`.
+3.  Define the `fetch` (API call) and `normalize` (mapping to `JobPosting`) methods.
+4.  Register the source in `config/sources.yaml`.
 
-* Replace JSON snapshot persistence with SQLite storage for local runs.
-* Add historical tracking and deduplication.
-* Expose aggregated data through a lightweight backend/API for a frontend client.
+*See [src/arachne/sources/README.md](src/arachne/sources/README.md) for a detailed guide.*
 
-## Extending
+---
 
-* Add a package under `src/arachne/sources/<name>/` exposing `Source` from `__init__.py`.
-* Keep provider-specific request mapping in `src/arachne/sources/<name>/params.py` and adapter
-  behavior in `src/arachne/sources/<name>/source.py`.
-* Add shared search and filters in `profiles/*.yaml`, and use `sources.<name>` overrides when a
-  provider needs special casing.
+## 🗺️ Roadmap
+
+- [ ] **API Layer:** FastAPI-based backend to expose scraping triggers and data.
+- [ ] **Web UI:** Interactive dashboard for viewing jobs and managing profiles.
+- [ ] **Persistent Database:** Transition from JSON snapshots to a relational database (SQLite/PostgreSQL).
+
+---
+
+## 📜 License
+This project is licensed under the MIT License.
