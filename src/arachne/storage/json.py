@@ -1,30 +1,52 @@
 """Simple JSON file storage for snapshots."""
 
+from __future__ import annotations
+
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+from arachne.models.job import JobPosting
+from arachne.storage.base import JobStorage
 
 
-class JsonFileJobStorage:
+class JsonFileJobStorage(JobStorage):
+    """JSON implementation of job storage using local files."""
+
     def __init__(self, root: Path) -> None:
         self.root = root
 
-    def save(self, source: str, payload: Sequence[object], filename: str = "jobs.json") -> Path:
+    def _get_filename(self, category: str) -> str:
+        if category == "filtered":
+            return "jobs.json"
+        return f"jobs.{category}.json"
+
+    def save_jobs(
+        self, source: str, jobs: Sequence[JobPosting], category: str = "filtered"
+    ) -> None:
+        """Save a list of job postings for a given source to a JSON file."""
         target_dir = self.root / source
         target_dir.mkdir(parents=True, exist_ok=True)
-        target_file = target_dir / filename
+        target_file = target_dir / self._get_filename(category)
+
+        payload = [j.model_dump(mode="json") for j in jobs]
         target_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-        return target_file
 
-    def save_raw(self, source: str, raw_payload: object) -> Path:
-        """Save the raw fetched payload to raw.json for inspection.
-
-        raw_payload may be any JSON-serializable object returned by the fetcher.
-        """
+    def save_raw(self, source: str, raw_payload: Any) -> None:
+        """Save the raw fetched payload to raw.json for inspection."""
         target_dir = self.root / source
         target_dir.mkdir(parents=True, exist_ok=True)
         target_file = target_dir / "raw.json"
         target_file.write_text(
             json.dumps(raw_payload, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        return target_file
+
+    def load_jobs(self, source: str, category: str = "filtered") -> list[JobPosting]:
+        """Load job postings for a given source from a JSON file."""
+        target_file = self.root / source / self._get_filename(category)
+        if not target_file.exists():
+            return []
+
+        data = json.loads(target_file.read_text(encoding="utf-8"))
+        return [JobPosting(**item) for item in data]

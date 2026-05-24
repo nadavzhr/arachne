@@ -81,7 +81,7 @@ async def test_pipeline_runs_without_crashing(
     content = global_yaml_path.read_text()
     global_yaml_path.write_text(content.replace("data_dir: data", f"data_dir: {tmp_path}/data"))
 
-    mocker.patch("arachne.runner.get_source_class", return_value=DummySource)
+    mocker.patch("arachne.services.scraper.get_source_class", return_value=DummySource)
 
     await arachne.runner.run_from_config(
         temp_config_dir,
