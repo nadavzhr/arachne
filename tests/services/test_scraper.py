@@ -12,6 +12,7 @@ import arachne.services.scraper
 import arachne.spiders.base
 import arachne.storage.json
 from arachne.clients.http import create_client
+from arachne.clients.playwright import PlaywrightManager
 
 
 @pytest.fixture
@@ -42,10 +43,10 @@ mock_spider:
 class DummySpider(arachne.spiders.base.Spider):
     async def fetch(
         self,
-        client: Any,
+        ctx: Any,
         search: arachne.models.schema.JobSearchCriteria,
     ) -> list[dict[str, str]]:
-        del client, search  # Unused.
+        del ctx, search  # Unused.
         return [{"id": "1", "title": "Test Job", "url": "http://example.com/job/1"}]
 
     def normalize(self, raw: Any) -> list[arachne.models.job.JobPosting]:
@@ -90,9 +91,11 @@ async def test_scraper_service_runs_without_crashing(
     profile = arachne.config.profile.SearchProfile()
 
     async with create_client(global_cfg.timeout_seconds, global_cfg.user_agent) as client:
+        browser = PlaywrightManager(headless=True)
         scraper = arachne.services.scraper.ScraperService(
             storage=storage,
             client=client,
+            browser=browser,
             concurrency=global_cfg.concurrency,
         )
 

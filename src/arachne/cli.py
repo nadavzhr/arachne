@@ -18,7 +18,9 @@ from arachne.logging import configure_logging, timestamped_log_name
 from arachne.services.jobs import JobService
 from arachne.services.profiles import ProfileService
 from arachne.services.scraper import ScraperService
+from arachne.storage.base import JobStorage
 from arachne.storage.json import JsonFileJobStorage
+from arachne.storage.sqlite import SqliteJobStorage
 
 if TYPE_CHECKING:
     from arachne.config.loader import GlobalConfig, SpiderConfig
@@ -118,7 +120,13 @@ def run(
     console.print(msg)
 
     async def _run() -> None:
-        storage = JsonFileJobStorage(Path(global_cfg.data_dir))
+        data_path = Path(global_cfg.data_dir)
+        storage: JobStorage
+        if global_cfg.storage_type == "sqlite":
+            storage = SqliteJobStorage(data_path / "arachne.db")
+        else:
+            storage = JsonFileJobStorage(data_path)
+
         async with create_client(
             global_cfg.timeout_seconds,
             global_cfg.user_agent,
@@ -193,7 +201,14 @@ def jobs(
         config: Path to the configuration directory to locate the data folder.
     """
     global_cfg, _ = load_all(config)
-    storage = JsonFileJobStorage(Path(global_cfg.data_dir))
+    data_path = Path(global_cfg.data_dir)
+
+    storage: JobStorage
+    if global_cfg.storage_type == "sqlite":
+        storage = SqliteJobStorage(data_path / "arachne.db")
+    else:
+        storage = JsonFileJobStorage(data_path)
+
     service = JobService(storage)
 
     # If no spider provided, list all spiders defined in config

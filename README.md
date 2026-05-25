@@ -82,7 +82,7 @@ Arachne is built on a modular "Service-Adapter" architecture:
 2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages the lifecycle of shared clients (HTTP and Browser).
 3.  **Spider Adapters:** Provider-specific modules that receive a `FetchContext` to handle the "Fetch" phase and subsequently "Normalize" data.
 4.  **Filter Service:** Applies search profiles (keywords, remote status, etc.) to the normalized data.
-5.  **Storage Layer:** Pluggable interface for persisting data (currently defaults to JSON snapshots).
+5.  **Storage Layer:** Pluggable interface for persisting data (defaults to **SQLite** for deduplication and history).
 
 ```mermaid
 graph TD
@@ -92,14 +92,14 @@ graph TD
     FetchCtx --> Spider[Spider Adapters]
     Spider --> Normalize[Normalize: Pydantic]
     Normalize --> Filter[Filter Service]
-    Filter --> Storage[Storage Layer: JSON]
+    Filter --> Storage[Storage Layer: SQLite]
 ```
 
 ---
 
 ## ⚙️ Configuration
 
--   **`config/global.yaml`**: System-wide settings (concurrency, timeouts, logging levels).
+-   **`config/global.yaml`**: System-wide settings (concurrency, storage type, logging).
 -   **`config/spiders.yaml`**: Registry of supported companies and their base API endpoints.
 -   **`profiles/*.yaml`**: Definitions of *what* to search for (e.g., "Software Engineer", "Remote", "London").
 
@@ -121,7 +121,7 @@ To add a new company:
 
 - [ ] **API Layer:** FastAPI-based backend to expose scraping triggers and data.
 - [ ] **Web UI:** Interactive dashboard for viewing jobs and managing profiles.
-- [ ] **Persistent Database:** Transition from JSON snapshots to a relational database (SQLite/PostgreSQL).
+- [x] **Persistent Database:** Transition from JSON snapshots to a relational database (SQLite).
 
 ---
 

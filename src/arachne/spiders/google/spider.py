@@ -7,6 +7,7 @@ job card elements. Returns raw job data; normalization converts to JobPosting mo
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
@@ -160,6 +161,10 @@ class GoogleSpider(BaseSpider):
             if not title or not url:
                 continue
 
+            # Generate a stable unique ID by hashing the URL, since Google
+            # cards don't provide an explicit external ID.
+            external_id = hashlib.sha256(str(url).encode()).hexdigest()[:16]
+
             try:
                 jobs.append(
                     JobPosting(
@@ -168,6 +173,7 @@ class GoogleSpider(BaseSpider):
                         title=str(title).strip(),
                         url=str(url).strip(),  # type: ignore
                         location=rec.get("location"),
+                        external_id=external_id,
                     )
                 )
             except Exception as e:

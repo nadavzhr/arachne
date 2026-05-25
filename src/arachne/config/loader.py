@@ -31,6 +31,9 @@ class GlobalConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     data_dir: str = Field(default="data", description="Directory for storing scraped job data")
+    storage_type: Literal["json", "sqlite"] = Field(
+        default="sqlite", description="The storage backend to use for persistence"
+    )
     timeout_seconds: float = Field(default=30.0, description="Network timeout in seconds")
     concurrency: int = Field(default=5, description="Maximum number of concurrent spider runs")
     request_concurrency: int = Field(

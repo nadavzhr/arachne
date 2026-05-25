@@ -10,22 +10,26 @@ Any storage implementation must satisfy the `JobStorage` abstract base class, wh
 
 ## Implementations
 
-### `JsonFileJobStorage` (`json.py`)
-The current default implementation. It saves data as human-readable JSON files in the `data/` directory.
-- **Pros**: Zero-config, easy to inspect with a text editor, git-friendly (if small).
-- **Cons**: No indexing, slow for large datasets, does not support complex queries.
+### `SqliteJobStorage` (`sqlite.py`) - **Default**
+The primary storage backend for Arachne. It uses a local SQLite database file (`arachne.db`) located in the `data/` directory.
+- **Deduplication**: Automatically handles job deduplication using a unique constraint on `(spider, external_id)`.
+- **History**: Tracks when a job was first discovered and when it was last seen active.
+- **Performance**: Significantly faster for large datasets than file-based storage.
 
-## Data Structure (JSON Storage)
-When using the JSON backend, the `data/` directory is organized as follows:
-```text
-data/
-└── <spider_name>/
-    ├── raw.json             # The last raw API response
-    ├── jobs.unfiltered.json # All normalized jobs before filtering
-    └── jobs.json            # Final jobs after profile filters
+### `JsonFileJobStorage` (`json.py`)
+A legacy/debugging backend that saves data as human-readable JSON files.
+- **Pros**: Zero-config, easy to inspect with a text editor.
+- **Cons**: No deduplication (overwrites files), slow, no historical tracking.
+
+## Configuration
+You can toggle between storage backends in `config/global.yaml`:
+
+```yaml
+storage_type: "sqlite"  # Options: "sqlite", "json"
+data_dir: "data"
 ```
 
-## Future Roadmap
-As the project grows, we plan to implement:
-- **`SqliteJobStorage`**: For better performance and local querying.
-- **`PostgresJobStorage`**: For production/multi-user deployments.
+## Database Schema (SQLite)
+The SQLite implementation uses two main tables:
+1.  **`jobs`**: Stores normalized job postings with timestamps for discovery and last confirmation.
+2.  **`raw_data`**: Stores the most recent raw payload from each spider for inspection.

@@ -1,6 +1,8 @@
 import httpx
 import pytest
 
+import arachne.clients.base
+import arachne.clients.playwright
 import arachne.config.loader
 import arachne.models.job
 import arachne.models.schema
@@ -11,10 +13,10 @@ from arachne.services import search as search_service
 class DummySpider(arachne.spiders.base.Spider):
     async def fetch(
         self,
-        client: httpx.AsyncClient,
+        ctx: arachne.clients.base.FetchContext,
         search: arachne.models.schema.JobSearchCriteria,
     ) -> list[dict[str, str]]:
-        del client, search  # Unused.
+        del ctx, search  # Unused.
         return [
             {"id": "1", "title": "Software Engineer", "url": "https://example.com/jobs/1"},
             {"id": "2", "title": "Software Intern", "url": "https://example.com/jobs/2"},
@@ -50,10 +52,10 @@ class DummySpider(arachne.spiders.base.Spider):
 class BrokenSpider(arachne.spiders.base.Spider):
     async def fetch(
         self,
-        client: httpx.AsyncClient,
+        ctx: arachne.clients.base.FetchContext,
         search: arachne.models.schema.JobSearchCriteria,
     ) -> list[dict[str, str]]:
-        del client, search  # Unused.
+        del ctx, search  # Unused.
         return [{"id": "1", "title": "Software Engineer", "url": "https://example.com"}]
 
     def normalize(self, raw: object) -> list[arachne.models.job.JobPosting]:
@@ -71,9 +73,11 @@ async def test_execute_search_applies_filters_and_spider() -> None:
     )
 
     async with httpx.AsyncClient() as client:
+        browser = arachne.clients.playwright.PlaywrightManager()
+        ctx = arachne.clients.base.FetchContext(http=client, browser=browser)
         result = await search_service.execute_search(
             spider=spider,
-            client=client,
+            ctx=ctx,
             search=arachne.models.schema.JobSearchCriteria(),
             filters=filters,
         )
@@ -90,9 +94,11 @@ async def test_execute_search_reports_normalize_errors() -> None:
     spider = BrokenSpider(cfg)
 
     async with httpx.AsyncClient() as client:
+        browser = arachne.clients.playwright.PlaywrightManager()
+        ctx = arachne.clients.base.FetchContext(http=client, browser=browser)
         result = await search_service.execute_search(
             spider=spider,
-            client=client,
+            ctx=ctx,
             search=arachne.models.schema.JobSearchCriteria(),
         )
 
