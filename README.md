@@ -105,6 +105,34 @@ graph TD
 
 ---
 
+## 🐳 Docker
+
+Arachne uses a multi-stage build.
+
+### Development (Live Sync)
+```bash
+# Start background dev container
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Run commands
+docker-compose exec app uv run arachne run
+docker-compose exec app uv run pytest
+
+# Stop
+docker-compose down
+```
+
+### Production Build
+```bash
+docker build -t arachne:prod --target prod .
+docker run --rm -v $(pwd)/data:/app/data arachne:prod run
+```
+
+---
+
 ## 🔌 Extending: Adding a New Spider
 
 To add a new company:

@@ -1,0 +1,14 @@
+# Ignore local environment files to keep the Docker image small and clean.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+.github/
+logs/
+data/
+tmp/
+.env
+.python-version

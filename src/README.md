@@ -8,7 +8,7 @@ This directory contains the primary Python source code for the Arachne project.
 
 ## Development
 
-- **Python Version**: 3.14+
+- **Python Version**: 3.12+
 - **Type Checking**: The project uses strict `mypy` type checking.
 - **Linting & Formatting**: Handled by `ruff`.
 

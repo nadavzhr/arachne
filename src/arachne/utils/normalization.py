@@ -102,7 +102,7 @@ def parse_datetime(value: Any) -> datetime | None:
             ts /= 1000
         try:
             return datetime.fromtimestamp(ts, tz=UTC)
-        except ValueError, OverflowError:
+        except (ValueError, OverflowError):
             return None
     if isinstance(value, str):
         try:

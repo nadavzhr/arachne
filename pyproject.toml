@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "arachne"
 version = "0.1.0"
 description = "A job scraping aggregator for public tech company listings."
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
   "httpx>=0.27,<1.0",
   "playwright>=1.52,<2.0",
@@ -31,7 +31,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -42,7 +42,7 @@ indent-style = "space"
 
 [tool.mypy]
 strict = true
-python_version = "3.14"
+python_version = "3.12"
 packages = ["arachne"]
 mypy_path = "src"
 
