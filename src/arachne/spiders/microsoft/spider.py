@@ -20,10 +20,31 @@ logger = logging.getLogger(__name__)
 
 
 class MicrosoftSpider(BaseSpider):
+    """Spider for Microsoft Careers portal.
+
+    This spider uses the Microsoft Careers JSON API to fetch job listings.
+    It supports pagination and maps Microsoft's internal job schema to
+    the standard JobPosting model.
+    """
+
     def __init__(self, cfg: SpiderConfig) -> None:
+        """Initialize Microsoft spider.
+
+        Args:
+            cfg: Spider configuration.
+        """
         super().__init__(cfg)
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+        """Fetch job listings from Microsoft Careers.
+
+        Args:
+            client: The HTTPX client to use for requests.
+            search: Standard search criteria.
+
+        Returns:
+            Any: Raw JSON response data (list of job records).
+        """
         params = MicrosoftParams.from_search(search)
         self.log.info("paginated http request started: url=%s", self.cfg.url)
         return await fetch_paginated_json(
@@ -31,6 +52,14 @@ class MicrosoftSpider(BaseSpider):
         )
 
     def normalize(self, raw: Any) -> list[JobPosting]:
+        """Normalize raw Microsoft job data into JobPosting models.
+
+        Args:
+            raw: Raw JSON data from fetch().
+
+        Returns:
+            list[JobPosting]: A list of normalized job postings.
+        """
         if not isinstance(raw, list):
             return []
 

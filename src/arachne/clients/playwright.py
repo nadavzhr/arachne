@@ -16,7 +16,18 @@ async def browser_session(
     user_agent: str | None = None,
     headless: bool = True,
 ) -> AsyncIterator[Page]:
-    """Provide a managed Playwright browser session (page)."""
+    """Provide a managed Playwright browser session (page).
+
+    This context manager handles the lifecycle of the Playwright process,
+    browser, and context, yielding a single Page for use.
+
+    Args:
+        user_agent: Optional custom User-Agent string.
+        headless: Whether to run the browser in headless mode.
+
+    Yields:
+        AsyncIterator[Page]: A Playwright Page object.
+    """
     playwright = await async_playwright().start()
     browser: Browser | None = None
     context: BrowserContext | None = None

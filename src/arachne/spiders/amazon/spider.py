@@ -24,10 +24,28 @@ logger = logging.getLogger(__name__)
 
 
 class AmazonSpider(BaseSpider):
+    """Spider for fetching job listings from Amazon Jobs."""
+
     def __init__(self, cfg: SpiderConfig) -> None:
+        """Initialize the Amazon spider.
+
+        Args:
+            cfg: The spider configuration.
+        """
         super().__init__(cfg)
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+        """Fetch raw job data from Amazon's public JSON endpoint.
+
+        Maps keywords to 'search_term' and locations to 'location' via AmazonParams.
+
+        Args:
+            client: The HTTP client for requests.
+            search: The search criteria.
+
+        Returns:
+            Any: A list containing the raw JSON response(s).
+        """
         params = AmazonParams.from_search(search)
         self.log.info("http request started: url=%s", self.cfg.url)
         raw = await fetch_json(
@@ -36,6 +54,17 @@ class AmazonSpider(BaseSpider):
         return raw if isinstance(raw, list) else [raw]
 
     def normalize(self, raw: Any) -> list[JobPosting]:
+        """Convert Amazon's raw JSON response into JobPosting models.
+
+        Handles Amazon's complex location formatting (often JSON-encoded strings within arrays)
+         and maps fields like 'id_icims' or 'id' to the internal external_id.
+
+        Args:
+            raw: The raw data from fetch().
+
+        Returns:
+            list[JobPosting]: Normalized job postings.
+        """
         items = raw
         if isinstance(raw, list) and len(raw) == 1 and isinstance(raw[0], dict):
             items = raw[0].get("jobs", [])

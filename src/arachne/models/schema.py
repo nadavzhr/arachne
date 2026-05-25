@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EmploymentType(StrEnum):
+    """Standardized employment types across all providers."""
+
     FULL_TIME = "full_time"
     PART_TIME = "part_time"
     CONTRACT = "contract"
@@ -15,16 +17,28 @@ class EmploymentType(StrEnum):
 
 
 class ExperienceLevel(StrEnum):
+    """Standardized experience levels across all providers."""
+
     ENTRY = "entry"
     MID = "mid"
     SENIOR = "senior"
 
 
 def _default_employment_types() -> list[EmploymentType]:
+    """Default value for employment types filter.
+
+    Returns:
+        list[EmploymentType]: List containing only FULL_TIME.
+    """
     return [EmploymentType.FULL_TIME]
 
 
 def _default_experience_levels() -> list[ExperienceLevel]:
+    """Default value for experience levels filter.
+
+    Returns:
+        list[ExperienceLevel]: List containing only ENTRY.
+    """
     return [ExperienceLevel.ENTRY]
 
 
@@ -33,13 +47,27 @@ class Filters(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    include_keywords: list[str] = Field(default_factory=list)
-    exclude_keywords: list[str] = Field(default_factory=list)
-    locations: list[str] = Field(default_factory=list)
+    include_keywords: list[str] = Field(
+        default_factory=list, description="Keywords that must be present in the job title"
+    )
+    exclude_keywords: list[str] = Field(
+        default_factory=list, description="Keywords that must not be present in the job title"
+    )
+    locations: list[str] = Field(
+        default_factory=list, description="Preferred job locations (e.g., 'London', 'Remote')"
+    )
 
     @field_validator("include_keywords", "exclude_keywords", "locations")
     @classmethod
     def _drop_empty_values(cls, values: list[str]) -> list[str]:
+        """Remove empty strings from the list of filter values.
+
+        Args:
+            values: List of string filter values.
+
+        Returns:
+            list[str]: Filtered list containing only non-empty strings.
+        """
         return [value for value in values if value]
 
 
@@ -48,13 +76,31 @@ class JobSearchCriteria(BaseModel):
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    title: str = "software engineer"
-    locations: list[str] = Field(default_factory=list)
-    remote: bool = True
-    employment_types: list[EmploymentType] = Field(default_factory=_default_employment_types)
-    experience_levels: list[ExperienceLevel] = Field(default_factory=_default_experience_levels)
+    title: str = Field(default="software engineer", description="Search query for job titles")
+    locations: list[str] = Field(
+        default_factory=list, description="Target geographic locations for the search"
+    )
+    remote: bool = Field(
+        default=True, description="Whether to specifically search for remote roles"
+    )
+    employment_types: list[EmploymentType] = Field(
+        default_factory=_default_employment_types,
+        description="List of employment types to include in the search",
+    )
+    experience_levels: list[ExperienceLevel] = Field(
+        default_factory=_default_experience_levels,
+        description="List of experience levels to include in the search",
+    )
 
     @field_validator("locations")
     @classmethod
     def _drop_empty_locations(cls, values: list[str]) -> list[str]:
+        """Remove empty strings from the list of locations.
+
+        Args:
+            values: List of location strings.
+
+        Returns:
+            list[str]: Filtered list containing only non-empty strings.
+        """
         return [value for value in values if value]

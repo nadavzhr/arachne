@@ -20,10 +20,31 @@ logger = logging.getLogger(__name__)
 
 
 class NvidiaSpider(BaseSpider):
+    """Spider for NVIDIA Careers portal.
+
+    This spider uses NVIDIA's job search API (Workday-based) to fetch
+    job listings. It supports pagination and maps the response to
+    the standard JobPosting model.
+    """
+
     def __init__(self, cfg: SpiderConfig) -> None:
+        """Initialize NVIDIA spider.
+
+        Args:
+            cfg: Spider configuration.
+        """
         super().__init__(cfg)
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+        """Fetch job listings from NVIDIA Careers.
+
+        Args:
+            client: The HTTPX client to use for requests.
+            search: Standard search criteria.
+
+        Returns:
+            Any: Raw JSON response data (list of job records).
+        """
         params = NvidiaParams.from_search(search)
         self.log.info("paginated http request started: url=%s", self.cfg.url)
         return await fetch_paginated_json(
@@ -31,6 +52,14 @@ class NvidiaSpider(BaseSpider):
         )
 
     def normalize(self, raw: Any) -> list[JobPosting]:
+        """Normalize raw NVIDIA job data into JobPosting models.
+
+        Args:
+            raw: Raw JSON data from fetch().
+
+        Returns:
+            list[JobPosting]: A list of normalized job postings.
+        """
         if not isinstance(raw, list):
             return []
 

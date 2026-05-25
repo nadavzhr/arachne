@@ -13,23 +13,49 @@ _SAFE_SPIDER_RE = re.compile(r"[^a-zA-Z0-9_.-]+")
 
 
 class SpiderFormatter(logging.Formatter):
-    """Formatter that gives non-spider records a stable spider field."""
+    """Formatter that ensures all log records have a `spider_name` attribute.
+
+    This ensures that logs from outside of spider contexts (e.g., core services)
+    can still be processed by the SpiderFileHandler without errors.
+    """
 
     def format(self, record: logging.LogRecord) -> str:
+        """Format the specified record as text.
+
+        Args:
+            record: The log record to format.
+
+        Returns:
+            str: The formatted log record.
+        """
         if not hasattr(record, "spider_name"):
             record.spider_name = "-"
         return super().format(record)
 
 
 class SpiderFileHandler(logging.Handler):
-    """Route records with ``spider_name`` into per-spider log files."""
+    """Handler that routes log records into per-spider files.
+
+    Records with a valid `spider_name` (not empty or '-') are written to a
+    specific log file in the configured spider log directory.
+    """
 
     def __init__(self, root: Path) -> None:
+        """Initialize the handler.
+
+        Args:
+            root: Path to the directory where spider logs should be stored.
+        """
         super().__init__()
         self.root = root
         self._handlers: dict[str, logging.FileHandler] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Emit a record.
+
+        Args:
+            record: The log record to emit.
+        """
         spider_name = getattr(record, "spider_name", "")
         if not isinstance(spider_name, str) or not spider_name or spider_name == "-":
             return
@@ -60,7 +86,15 @@ class SpiderFileHandler(logging.Handler):
 
 
 def timestamped_log_name(filename: str, stamp: str) -> str:
-    """Append a timestamp to a filename while preserving the extension."""
+    """Append a timestamp to a filename while preserving the extension.
+
+    Args:
+        filename: The original filename (e.g., 'arachne.log').
+        stamp: The timestamp string to append.
+
+    Returns:
+        str: The timestamped filename (e.g., 'arachne-20240101.log').
+    """
     path = Path(filename)
     suffix = path.suffix
     if suffix:
@@ -77,9 +111,21 @@ def configure_logging(
     spider_directory: str,
     console_enabled: bool = False,
 ) -> int:
-    """Configure logging for the application.
+    """Initialize the application's logging subsystem.
 
-    Returns the numeric log level configured.
+    This configures a central log file, isolated per-spider log files, and
+    optional console output via Rich.
+
+    Args:
+        enabled: Whether file logging is enabled.
+        directory: Root directory for all logs.
+        level: The global log level (e.g., 'INFO').
+        central_file: Filename for the combined log file.
+        spider_directory: Subdirectory for per-spider log files.
+        console_enabled: Whether to output logs to the console.
+
+    Returns:
+        int: The numeric log level that was configured.
     """
 
     root_logger = logging.getLogger()
@@ -135,7 +181,15 @@ def configure_logging(
 
 
 def spider_logger(spider_name: str, logger_name: str) -> logging.LoggerAdapter[Any]:
-    """Return a logger adapter that marks records with the spider name."""
+    """Return a logger adapter that injects the spider name into log records.
+
+    Args:
+        spider_name: The name of the spider to associate with logs.
+        logger_name: The name of the logger to wrap (typically `__name__`).
+
+    Returns:
+        logging.LoggerAdapter: An adapter that automatically adds 'spider_name'.
+    """
 
     return logging.LoggerAdapter(
         logging.getLogger(logger_name),

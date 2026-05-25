@@ -15,6 +15,15 @@ import arachne.spiders.base
 
 @dataclasses.dataclass(frozen=True)
 class SearchResult:
+    """Container for the results of a spider execution.
+
+    Attributes:
+        raw: The raw data fetched from the provider.
+        normalized: List of job postings normalized to the internal schema.
+        filtered: List of job postings after applying filters.
+        normalization_error: Any exception encountered during normalization.
+    """
+
     raw: Any
     normalized: list[arachne.models.job.JobPosting]
     filtered: list[arachne.models.job.JobPosting]
@@ -25,6 +34,15 @@ def _ensure_spider(
     spider: str,
     jobs: list[arachne.models.job.JobPosting],
 ) -> list[arachne.models.job.JobPosting]:
+    """Ensure all job postings are tagged with the correct spider name.
+
+    Args:
+        spider: The name of the spider.
+        jobs: List of job postings to verify.
+
+    Returns:
+        list[arachne.models.job.JobPosting]: Updated list of job postings.
+    """
     normalized: list[arachne.models.job.JobPosting] = []
     for job in jobs:
         if job.spider == spider:
@@ -40,6 +58,19 @@ async def execute_search(
     search: arachne.models.schema.JobSearchCriteria,
     filters: arachne.models.schema.Filters | None = None,
 ) -> SearchResult:
+    """Execute the full search pipeline for a spider.
+
+    Fetches raw data, normalizes it, and applies filters.
+
+    Args:
+        spider: The spider instance to use.
+        client: The HTTP client for requests.
+        search: The search criteria.
+        filters: Optional filters to apply after normalization.
+
+    Returns:
+        SearchResult: The aggregated results of the search pipeline.
+    """
     raw = await spider.fetch(client, search)
 
     normalize_error: Exception | None = None

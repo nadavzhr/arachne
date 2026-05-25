@@ -11,12 +11,28 @@ from arachne.models.schema import EmploymentType, ExperienceLevel, JobSearchCrit
 
 
 def _primary_location(search: JobSearchCriteria) -> str:
+    """Extract the primary location string for Amazon's loc_query.
+
+    Args:
+        search: The job search criteria.
+
+    Returns:
+        str: The primary location name or 'Remote' if applicable.
+    """
     if not search.locations:
         return "Remote" if search.remote else ""
     return search.locations[0]
 
 
 def _country_codes(locations: list[str]) -> list[str]:
+    """Map location strings to Amazon-specific country codes (e.g., 'ISR', 'USA').
+
+    Args:
+        locations: List of location strings.
+
+    Returns:
+        list[str]: Unique list of Amazon country codes.
+    """
     country_codes = {
         "israel": "ISR",
         "united states": "USA",
@@ -35,6 +51,14 @@ def _country_codes(locations: list[str]) -> list[str]:
 
 
 def _schedule_types(employment_types: list[EmploymentType]) -> list[str]:
+    """Map internal employment types to Amazon schedule types.
+
+    Args:
+        employment_types: List of internal EmploymentType enums.
+
+    Returns:
+        list[str]: List of Amazon schedule type strings.
+    """
     mapping = {
         EmploymentType.FULL_TIME: "Full-Time",
         EmploymentType.PART_TIME: "Part-Time",
@@ -45,6 +69,14 @@ def _schedule_types(employment_types: list[EmploymentType]) -> list[str]:
 
 
 def _experience_filters(levels: list[ExperienceLevel]) -> list[str]:
+    """Map internal experience levels to Amazon industry experience filters.
+
+    Args:
+        levels: List of internal ExperienceLevel enums.
+
+    Returns:
+        list[str]: List of Amazon experience filter strings.
+    """
     mapping = {
         ExperienceLevel.ENTRY: "one_to_three_years",
         ExperienceLevel.MID: "three_to_five_years",
@@ -54,18 +86,36 @@ def _experience_filters(levels: list[ExperienceLevel]) -> list[str]:
 
 
 class AmazonParams(BaseParams):
-    base_query: str = Field(default="software engineer")
-    category: list[str] = Field(default_factory=lambda: ["software-development"])
-    schedule_type_id: list[str] = Field(default_factory=lambda: ["Full-Time"])
-    normalized_country_code: list[str] = Field(default_factory=list)
-    industry_experience: list[str] = Field(default_factory=lambda: ["one_to_three_years"])
-    loc_query: str = Field(default="")
-    result_limit: str = Field(default="100")
-    offset: str = Field(default="0")
-    sort: str = Field(default="relevant")
+    """Parameter model for Amazon Jobs API requests."""
+
+    base_query: str = Field(default="software engineer", description="Search keywords")
+    category: list[str] = Field(
+        default_factory=lambda: ["software-development"], description="Job category filters"
+    )
+    schedule_type_id: list[str] = Field(
+        default_factory=lambda: ["Full-Time"], description="Employment type filters"
+    )
+    normalized_country_code: list[str] = Field(
+        default_factory=list, description="Target country code filters"
+    )
+    industry_experience: list[str] = Field(
+        default_factory=lambda: ["one_to_three_years"], description="Experience level filters"
+    )
+    loc_query: str = Field(default="", description="Location search query")
+    result_limit: str = Field(default="100", description="Number of results to return")
+    offset: str = Field(default="0", description="Pagination offset")
+    sort: str = Field(default="relevant", description="Sorting criteria")
 
     @classmethod
     def from_search(cls, search: JobSearchCriteria) -> AmazonParams:
+        """Create AmazonParams from generic JobSearchCriteria.
+
+        Args:
+            search: The generic search criteria.
+
+        Returns:
+            AmazonParams: Populated Amazon parameters.
+        """
         return cls(
             base_query=search.title,
             schedule_type_id=_schedule_types(search.employment_types),
@@ -75,6 +125,11 @@ class AmazonParams(BaseParams):
         )
 
     def to_query(self) -> dict[str, Any]:
+        """Convert parameters to a dictionary suitable for URL query strings.
+
+        Returns:
+            dict[str, Any]: Dictionary of query parameters including list handling for Amazon's API.
+        """
         return {
             "base_query": self.base_query,
             "offset": self.offset,

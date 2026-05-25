@@ -13,6 +13,18 @@ logger = logging.getLogger(__name__)
 
 
 def _import_module(name: str) -> ModuleType | None:
+    """Attempt to dynamically import a spider module by name.
+
+    Args:
+        name: The name of the spider (e.g., 'amazon').
+
+    Returns:
+        ModuleType | None: The imported module, or None if not found.
+
+    Raises:
+        ModuleNotFoundError: If the module is not found and the error name
+            doesn't match the expected module path.
+    """
     module_name = f"arachne.spiders.{name}"
     try:
         return importlib.import_module(module_name)
@@ -24,10 +36,19 @@ def _import_module(name: str) -> ModuleType | None:
 
 
 def get_spider_class(name: str) -> type[Spider]:
-    """Return a `Spider` class for the given spider name.
+    """Return the `Spider` class implementation for the given spider name.
+
+    This function searches the `arachne.spiders.<name>` package for a class
+    named `Spider` or any class ending with `Spider`.
+
+    Args:
+        name: The name of the spider to retrieve.
+
+    Returns:
+        type[Spider]: The spider class implementation.
 
     Raises:
-        ValueError: If no specific implementation package is found for the given name.
+        ValueError: If no specific implementation package or 'Spider' class is found.
     """
     module = _import_module(name)
     if module is None:

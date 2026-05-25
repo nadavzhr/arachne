@@ -33,7 +33,15 @@ console = Console()
 def _bootstrap(
     config_dir: Path, debug: bool = False
 ) -> tuple[GlobalConfig, dict[str, SpiderConfig]]:
-    """Common setup for logging and config loading."""
+    """Common setup for logging and configuration loading.
+
+    Args:
+        config_dir: Path to the directory containing global.yaml and spiders.yaml.
+        debug: Whether to force log levels to DEBUG and enable console output.
+
+    Returns:
+        tuple[GlobalConfig, dict[str, SpiderConfig]]: Loaded global and spider configurations.
+    """
     global_cfg, spiders = load_all(config_dir)
     run_stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
 
@@ -69,7 +77,12 @@ def run(
         bool, typer.Option("--debug", "-d", help="Enable debug logging to console.")
     ] = False,
 ) -> None:
-    """Execute scraping for a specific profile and optional specific spiders."""
+    """Execute scraping for a specific profile and optional specific spiders.
+
+    This command orchestrates the entire scraping pipeline: it loads configuration,
+    initializes the scraping service, dispatches concurrent spider tasks, and
+    displays a summary of the results.
+    """
     global_cfg, all_spiders = _bootstrap(config, debug=debug)
 
     profiles_dir = Path("profiles")
@@ -143,7 +156,7 @@ def run(
 
 @app.command()
 def profiles() -> None:
-    """List all available search profiles."""
+    """List all available search profiles found in the profiles directory."""
     profiles_dir = Path("profiles")
     service = ProfileService(profiles_dir)
     names = service.list_profiles()
@@ -166,7 +179,12 @@ def jobs(
         Path, typer.Option("--config", "-c", help="Path to config to find data_dir.")
     ] = Path("config"),
 ) -> None:
-    """View summary of the latest scraped jobs."""
+    """View a summary table of the latest scraped jobs stored on disk.
+
+    Args:
+        spider: Optional name of a specific spider to filter by.
+        config: Path to the configuration directory to locate the data folder.
+    """
     global_cfg, _ = load_all(config)
     storage = JsonFileJobStorage(Path(global_cfg.data_dir))
     service = JobService(storage)

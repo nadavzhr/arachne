@@ -14,12 +14,30 @@ logger = logging.getLogger(__name__)
 
 
 def build_query_string(params: Mapping[str, Any]) -> str:
-    """Format a dictionary as a URL query string."""
+    """Format a dictionary as a URL query string.
+
+    Args:
+        params: Dictionary of query parameters.
+
+    Returns:
+        str: URL-encoded query string.
+    """
     return urlencode(params, doseq=True, quote_via=quote)
 
 
 def first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
-    """Return the first non-empty string value found in the given keys."""
+    """Return the first non-empty string value found in the given keys.
+
+    Handles nested dictionaries (extracting 'name' or 'label') and lists
+    (joining non-empty strings).
+
+    Args:
+        record: The dictionary to search.
+        keys: A tuple of keys to check in order.
+
+    Returns:
+        str | None: The first found string value, or None if no match.
+    """
     for k in keys:
         v = record.get(k)
         if isinstance(v, str) and v.strip():
@@ -46,7 +64,15 @@ def first_str(record: dict[str, Any], keys: tuple[str, ...]) -> str | None:
 
 
 def first_any(record: dict[str, Any], keys: tuple[str, ...]) -> Any | None:
-    """Return the first value found for the given keys."""
+    """Return the first value found for the given keys.
+
+    Args:
+        record: The dictionary to search.
+        keys: A tuple of keys to check in order.
+
+    Returns:
+        Any | None: The first found value, or None if no match.
+    """
     for k in keys:
         if k in record:
             return record[k]
@@ -54,7 +80,17 @@ def first_any(record: dict[str, Any], keys: tuple[str, ...]) -> Any | None:
 
 
 def parse_datetime(value: Any) -> datetime | None:
-    """Parse a date string or Unix timestamp into a datetime object."""
+    """Parse a date string or Unix timestamp into a datetime object.
+
+    Supports datetime objects, numeric timestamps (seconds or milliseconds),
+    ISO format strings, and short 'YYYY-MM-DD' strings.
+
+    Args:
+        value: The value to parse.
+
+    Returns:
+        datetime | None: The parsed datetime object in UTC, or None if parsing fails.
+    """
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -81,6 +117,14 @@ def parse_datetime(value: Any) -> datetime | None:
 
 
 def _as_lower_text(value: Any) -> str:
+    """Internal helper to convert various types to lowercase stripped string.
+
+    Args:
+        value: The value to convert.
+
+    Returns:
+        str: Lowercase string representation.
+    """
     if value is None:
         return ""
     if isinstance(value, list):
@@ -91,7 +135,14 @@ def _as_lower_text(value: Any) -> str:
 
 
 def parse_bool(value: Any) -> bool:
-    """Coerce various values into a boolean."""
+    """Coerce various values into a boolean.
+
+    Args:
+        value: The value to coerce.
+
+    Returns:
+        bool: Coerced boolean value.
+    """
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -100,7 +151,14 @@ def parse_bool(value: Any) -> bool:
 
 
 def parse_employment_type(value: Any) -> EmploymentType | None:
-    """Infer EmploymentType from raw text."""
+    """Infer EmploymentType from raw text.
+
+    Args:
+        value: Raw text to analyze.
+
+    Returns:
+        EmploymentType | None: The inferred employment type, or None.
+    """
     text = _as_lower_text(value)
     if not text:
         return None
@@ -116,7 +174,14 @@ def parse_employment_type(value: Any) -> EmploymentType | None:
 
 
 def parse_experience_level(value: Any) -> ExperienceLevel | None:
-    """Infer ExperienceLevel from raw text."""
+    """Infer ExperienceLevel from raw text.
+
+    Args:
+        value: Raw text to analyze.
+
+    Returns:
+        ExperienceLevel | None: The inferred experience level, or None.
+    """
     text = _as_lower_text(value)
     if not text:
         return None
@@ -130,7 +195,15 @@ def parse_experience_level(value: Any) -> ExperienceLevel | None:
 
 
 def build_url(base: str | None, suffix: str | None) -> str | None:
-    """Combine a base URL and a suffix into a full URL."""
+    """Combine a base URL and a suffix into a full URL.
+
+    Args:
+        base: The base URL.
+        suffix: The URL suffix or relative path.
+
+    Returns:
+        str | None: The combined full URL, or None if base/suffix is missing.
+    """
     if not suffix:
         return None
     s = suffix.strip()
@@ -142,7 +215,14 @@ def build_url(base: str | None, suffix: str | None) -> str | None:
 
 
 def try_parse_json_string(value: Any) -> Any:
-    """If value is a JSON-encoded string, parse it and return parsed value, else return original."""
+    """If value is a JSON-encoded string, parse it.
+
+    Args:
+        value: The value to attempt parsing.
+
+    Returns:
+        Any: Parsed JSON data if successful, otherwise original value.
+    """
     if isinstance(value, str) and value.strip().startswith("{"):
         try:
             import json

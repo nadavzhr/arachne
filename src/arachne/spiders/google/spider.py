@@ -38,15 +38,36 @@ class GoogleSpider(BaseSpider):
     """
 
     def __init__(self, cfg: SpiderConfig) -> None:
+        """Initialize the Google spider.
+
+        Args:
+            cfg: The spider configuration.
+        """
         super().__init__(cfg)
 
     def _build_search_url(self, params: GoogleParams) -> str:
+        """Construct the full search URL with query parameters.
+
+        Args:
+            params: The Google-specific search parameters.
+
+        Returns:
+            str: The full URL for Google Careers search results.
+        """
         return f"{BASE_URL}jobs/results?{build_query_string(params.to_query())}"
 
     async def _parse_job_card(
         self, card: Locator, preferred_locations: list[str]
     ) -> dict[str, str]:
-        """Extract details cleanly from a single job card element."""
+        """Extract details cleanly from a single job card element.
+
+        Args:
+            card: The Playwright Locator for the job card.
+            preferred_locations: List of locations to prioritize during extraction.
+
+        Returns:
+            dict[str, str]: Dictionary containing 'title', 'location', and 'url'.
+        """
         try:
             title_el = card.locator("h3")
             title = await title_el.inner_text() if await title_el.count() else "Unknown Title"
@@ -78,7 +99,18 @@ class GoogleSpider(BaseSpider):
             return {"title": "Error Parsing", "location": "Error", "url": "Error"}
 
     async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, str]]:
-        """Fetch jobs by rendering Google Careers page and scraping job cards."""
+        """Fetch jobs by rendering Google Careers page and scraping job cards.
+
+        Since Google does not provide a public API, this method relies on web scraping
+        via Playwright. Pagination is currently not supported.
+
+        Args:
+            client: The HTTP client (unused, as Playwright handles requests).
+            search: The search criteria to apply.
+
+        Returns:
+            list[dict[str, str]]: List of raw job dictionaries extracted from the page.
+        """
         del client  # Unused.
         params = GoogleParams.from_search(search)
 
@@ -106,7 +138,14 @@ class GoogleSpider(BaseSpider):
             return extracted_jobs
 
     def normalize(self, raw: Any) -> list[JobPosting]:
-        """Convert raw job data into JobPosting models."""
+        """Convert raw scraped job data into JobPosting models.
+
+        Args:
+            raw: The raw data (list of dictionaries) from fetch().
+
+        Returns:
+            list[JobPosting]: A list of normalized job postings.
+        """
         if not isinstance(raw, list):
             return []
 

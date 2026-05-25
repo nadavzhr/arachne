@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 class ScraperService:
-    """Service to coordinate the multi-spider scraping process."""
+    """Service to coordinate the multi-spider scraping process.
+
+    This service handles concurrency and persistence for multiple spiders
+    running against a specific search profile.
+    """
 
     def __init__(
         self,
@@ -28,6 +32,13 @@ class ScraperService:
         client: httpx.AsyncClient,
         concurrency: int = 1,
     ) -> None:
+        """Initialize the scraper service.
+
+        Args:
+            storage: The storage backend to persist results.
+            client: The HTTP client to use for requests.
+            concurrency: Maximum number of spiders to run in parallel.
+        """
         self.storage = storage
         self.client = client
         self.semaphore = asyncio.Semaphore(max(1, concurrency))
@@ -38,7 +49,17 @@ class ScraperService:
         cfg: SpiderConfig,
         profile: SearchProfile,
     ) -> search_service.SearchResult:
-        """Execute search for a single spider and persist results."""
+        """Execute search for a single spider and persist results.
+
+        Args:
+            name: The name of the spider to run.
+            cfg: Configuration for the spider.
+            profile: The search profile containing criteria and filters.
+
+        Returns:
+            search_service.SearchResult: The result of the search,
+                including raw and normalized data.
+        """
         SpiderCls = get_spider_class(name)
         spider = SpiderCls(cfg)
 
@@ -66,7 +87,16 @@ class ScraperService:
         spiders_config: dict[str, SpiderConfig],
         profile: SearchProfile,
     ) -> dict[str, search_service.SearchResult | BaseException]:
-        """Run scraping for all enabled spiders in a profile."""
+        """Run scraping for all enabled spiders in a profile.
+
+        Args:
+            spiders_config: Dictionary mapping spider names to their configurations.
+            profile: The search profile to execute.
+
+        Returns:
+            dict[str, search_service.SearchResult | BaseException]: A mapping of spider names
+                to their search results or any exceptions encountered.
+        """
         tasks: dict[str, asyncio.Task[search_service.SearchResult]] = {}
 
         for name, cfg in spiders_config.items():
