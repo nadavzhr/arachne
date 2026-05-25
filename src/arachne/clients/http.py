@@ -3,36 +3,69 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
 DEFAULT_TIMEOUT = 30.0
 
+logger = logging.getLogger(__name__)
+
 
 class ThrottledClient:
     """A wrapper for httpx.AsyncClient that enforces a global concurrency limit.
 
-    This ensures that the total number of outoing requests across all spiders
-    does not exceed a certain threshold, preventing rate-limiting.
+    Includes automatic retries for transient network errors.
     """
 
-    def __init__(self, client: httpx.AsyncClient, semaphore: asyncio.Semaphore) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        semaphore: asyncio.Semaphore,
+        max_retries: int = 3,
+    ) -> None:
         self._client = client
         self._semaphore = semaphore
+        self._max_retries = max_retries
+
+    async def _request_with_retry(self, method: str, *args: Any, **kwargs: Any) -> httpx.Response:
+        """Execute a request with exponential backoff retries."""
+        last_exc: Exception | None = None
+        func = getattr(self._client, method.lower())
+
+        for attempt in range(self._max_retries + 1):
+            try:
+                async with self._semaphore:
+                    result = await func(*args, **kwargs)
+                    return cast(httpx.Response, result)
+            except (httpx.RequestError, httpx.TimeoutException) as exc:
+                last_exc = exc
+                if attempt < self._max_retries:
+                    delay = 2**attempt  # Exponential backoff: 1, 2, 4s
+                    logger.warning(
+                        "retrying request: method=%s attempt=%d delay=%ds error=%s",
+                        method,
+                        attempt + 1,
+                        delay,
+                        exc,
+                    )
+                    await asyncio.sleep(delay)
+                continue
+
+        if last_exc:
+            raise last_exc
+        raise RuntimeError(f"Request failed after {self._max_retries} retries")
 
     async def get(self, *args: Any, **kwargs: Any) -> httpx.Response:
-        async with self._semaphore:
-            return await self._client.get(*args, **kwargs)
+        return await self._request_with_retry("GET", *args, **kwargs)
 
     async def post(self, *args: Any, **kwargs: Any) -> httpx.Response:
-        async with self._semaphore:
-            return await self._client.post(*args, **kwargs)
+        return await self._request_with_retry("POST", *args, **kwargs)
 
-    async def request(self, *args: Any, **kwargs: Any) -> httpx.Response:
-        async with self._semaphore:
-            return await self._client.request(*args, **kwargs)
+    async def request(self, method: str, *args: Any, **kwargs: Any) -> httpx.Response:
+        return await self._request_with_retry(method, *args, **kwargs)
 
     async def __aenter__(self) -> ThrottledClient:
         await self._client.__aenter__()

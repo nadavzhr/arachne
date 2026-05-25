@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
+import pydantic
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -86,7 +87,14 @@ def run(
     initializes the scraping service, dispatches concurrent spider tasks, and
     displays a summary of the results.
     """
-    global_cfg, all_spiders = _bootstrap(config, debug=debug)
+    try:
+        global_cfg, all_spiders = _bootstrap(config, debug=debug)
+    except pydantic.ValidationError as e:
+        console.print("[red]Error: Invalid configuration found.[/red]")
+        for err in e.errors():
+            loc = " -> ".join(str(x) for x in err["loc"])
+            console.print(f"  [bold]{loc}:[/bold] {err['msg']} (Got: {err['input']})")
+        raise typer.Exit(code=1) from None
 
     profiles_dir = Path("profiles")
     profile_service = ProfileService(profiles_dir)
@@ -127,46 +135,57 @@ def run(
         else:
             storage = JsonFileJobStorage(data_path)
 
-        async with create_client(
-            global_cfg.timeout_seconds,
-            global_cfg.user_agent,
-            request_concurrency=global_cfg.request_concurrency,
-        ) as client:
-            browser = PlaywrightManager(headless=not debug)
-            scraper = ScraperService(
-                storage=storage,
-                client=client,
-                browser=browser,
-                concurrency=global_cfg.concurrency,
-            )
+        try:
+            async with create_client(
+                global_cfg.timeout_seconds,
+                global_cfg.user_agent,
+                request_concurrency=global_cfg.request_concurrency,
+            ) as client:
+                browser = PlaywrightManager(headless=not debug)
+                scraper = ScraperService(
+                    storage=storage,
+                    client=client,
+                    browser=browser,
+                    concurrency=global_cfg.concurrency,
+                )
 
-            results = await scraper.run_profile(spiders_to_run, prof)
+                results = await scraper.run_profile(spiders_to_run, prof)
 
-            table = Table(title=f"Scraping Results: {prof.name}")
-            table.add_column("Spider", style="cyan")
-            table.add_column("Status", style="bold")
-            table.add_column("Found", justify="right")
-            table.add_column("Filtered", justify="right")
+                table = Table(title=f"Scraping Results: {prof.name}")
+                table.add_column("Spider", style="cyan")
+                table.add_column("Status", style="bold")
+                table.add_column("Found", justify="right")
+                table.add_column("Filtered", justify="right")
 
-            for name, result in results.items():
-                if isinstance(result, BaseException):
-                    table.add_row(name, "[red]FAILED[/red]", "-", "-")
-                else:
-                    status = (
-                        "[green]OK[/green]"
-                        if not result.normalization_error
-                        else "[yellow]WARN[/yellow]"
-                    )
-                    table.add_row(
-                        name,
-                        status,
-                        str(len(result.normalized)),
-                        str(len(result.filtered)),
-                    )
+                for name, result in results.items():
+                    if isinstance(result, BaseException):
+                        table.add_row(name, "[red]FAILED[/red]", "-", "-")
+                    else:
+                        status = (
+                            "[green]OK[/green]"
+                            if not result.normalization_error
+                            else "[yellow]WARN[/yellow]"
+                        )
+                        table.add_row(
+                            name,
+                            status,
+                            str(len(result.normalized)),
+                            str(len(result.filtered)),
+                        )
 
-            console.print(table)
+                console.print(table)
+        except asyncio.CancelledError, KeyboardInterrupt:
+            console.print("\n[yellow]⚠️ Interrupt received. Cleaning up...[/yellow]")
+        except Exception as exc:
+            console.print(f"[red]Fatal Error:[/red] {exc}")
+            if debug:
+                raise
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        # Already handled in _run, but caught here to prevent traceback
+        pass
 
 
 @app.command()
