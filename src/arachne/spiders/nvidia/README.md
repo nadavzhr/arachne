@@ -10,4 +10,4 @@ This adapter fetches and normalizes job listings from the NVIDIA Careers portal.
     - Extracts posting dates and location details.
 
 ## Quirks
-- As NVIDIA uses Workday for their portal, this adapter is tailored to handle common Workday API response patterns.
+- None, NVIDIA's API is relatively straightforward and consistent compared to other portals.

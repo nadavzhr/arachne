@@ -10,4 +10,4 @@ This adapter fetches and normalizes job listings from the Microsoft Careers port
     - Handles global location strings and relocation indicators.
 
 ## Quirks
-- Microsoft's portal can be highly dynamic; the `fetch` method includes specific error handling for transient gateway timeouts.
+- None, Microsoft's API is relatively straightforward and consistent compared to other portals.

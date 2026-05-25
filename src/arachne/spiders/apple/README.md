@@ -10,4 +10,5 @@ This adapter fetches and normalizes job listings from the Apple Careers portal.
     - Handles Apple-specific location formatting and job categories.
 
 ## Quirks
-- Apple's job portal often has specific header requirements or rate-limiting patterns that are handled within the `fetch` logic.
+- To properly interact with Apple's API, we first acquire a CSRF token (which is essentially a cookie) by making an initial request to the main jobs page. This token is then included in the headers of subsequent API requests to fetch job listings.
+- Apple's API returns job listings in a paginated format, requiring multiple requests to retrieve all available jobs. The adapter includes logic to handle pagination and ensure that all listings are fetched and normalized correctly.
