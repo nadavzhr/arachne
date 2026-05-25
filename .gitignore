@@ -5,12 +5,21 @@
 .venv/
 build/
 coverage.xml
-data/
 dist/
 htmlcov/
 logs/
 __pycache__/
 *.egg-info/
+
+# Ignore everything in data/ except the DB and README
+data/*
+!data/arachne.db
+!data/README.md
+!data/jobs.json
+
+# UI Node deps
+ui/node_modules/
+ui/dist/
 
 tmp/
 .vscode/

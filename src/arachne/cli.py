@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
@@ -174,7 +175,7 @@ def run(
                         )
 
                 console.print(table)
-        except asyncio.CancelledError, KeyboardInterrupt:
+        except (asyncio.CancelledError, KeyboardInterrupt):
             console.print("\n[yellow]⚠️ Interrupt received. Cleaning up...[/yellow]")
         except Exception as exc:
             console.print(f"[red]Fatal Error:[/red] {exc}")
@@ -256,6 +257,43 @@ def jobs(
         table.add_row("...", "...", f"and {len(all_jobs) - 20} more", "...", "...")
 
     console.print(table)
+
+
+@app.command()
+def export(
+    output: Annotated[
+        Path, typer.Option("--output", "-o", help="Path to write the JSON file.")
+    ] = Path("ui/public/jobs.json"),
+    config: Annotated[
+        Path, typer.Option("--config", "-c", help="Path to the configuration directory.")
+    ] = Path("config"),
+) -> None:
+    """Export all jobs from SQLite to a JSON file for the web UI."""
+    global_cfg, _ = load_all(config)
+    data_path = Path(global_cfg.data_dir)
+
+    if global_cfg.storage_type != "sqlite":
+        console.print("[red]Error:[/red] Export only supported for SQLite storage.")
+        raise typer.Exit(1)
+
+    storage = SqliteJobStorage(data_path / "arachne.db")
+    service = JobService(storage)
+
+    _, spiders = load_all(config)
+    all_jobs = service.get_all_jobs(list(spiders.keys()))
+
+    if not all_jobs:
+        console.print("[yellow]No jobs found to export.[/yellow]")
+        return
+
+    # Convert Pydantic models to dictionaries
+    data = [job.model_dump(mode="json") for job in all_jobs]
+
+    # Ensure output directory exists
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    console.print(f"[green]Successfully exported {len(data)} jobs to {output}[/green]")
 
 
 if __name__ == "__main__":
