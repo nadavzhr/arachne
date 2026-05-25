@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import httpx
 
+    from arachne.clients.http import ThrottledClient
     from arachne.clients.playwright import PlaywrightManager
 
 
@@ -18,5 +19,5 @@ class FetchContext:
     Contains shared clients for HTTP and browser-based scraping.
     """
 
-    http: httpx.AsyncClient
+    http: httpx.AsyncClient | ThrottledClient
     browser: PlaywrightManager

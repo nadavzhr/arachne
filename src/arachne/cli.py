@@ -119,7 +119,11 @@ def run(
 
     async def _run() -> None:
         storage = JsonFileJobStorage(Path(global_cfg.data_dir))
-        async with create_client(global_cfg.timeout_seconds, global_cfg.user_agent) as client:
+        async with create_client(
+            global_cfg.timeout_seconds,
+            global_cfg.user_agent,
+            request_concurrency=global_cfg.request_concurrency,
+        ) as client:
             browser = PlaywrightManager(headless=not debug)
             scraper = ScraperService(
                 storage=storage,

@@ -13,6 +13,7 @@ from arachne.spiders import get_spider_class
 if TYPE_CHECKING:
     import httpx
 
+    from arachne.clients.http import ThrottledClient
     from arachne.clients.playwright import PlaywrightManager
     from arachne.config.loader import SpiderConfig
     from arachne.config.profile import SearchProfile
@@ -31,7 +32,7 @@ class ScraperService:
     def __init__(
         self,
         storage: JobStorage,
-        client: httpx.AsyncClient,
+        client: httpx.AsyncClient | ThrottledClient,
         browser: PlaywrightManager,
         concurrency: int = 1,
     ) -> None:

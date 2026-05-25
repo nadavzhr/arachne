@@ -1,6 +1,7 @@
 data_dir: data
 timeout_seconds: 30.0
 concurrency: 5
+request_concurrency: 10
 user_agent: "arachne/0.1.0"
 logging:
   enabled: true

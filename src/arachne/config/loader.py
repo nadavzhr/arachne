@@ -33,6 +33,9 @@ class GlobalConfig(BaseModel):
     data_dir: str = Field(default="data", description="Directory for storing scraped job data")
     timeout_seconds: float = Field(default=30.0, description="Network timeout in seconds")
     concurrency: int = Field(default=5, description="Maximum number of concurrent spider runs")
+    request_concurrency: int = Field(
+        default=10, description="Maximum number of concurrent HTTP requests globally"
+    )
     user_agent: str = Field(default="arachne/0.1.0", description="Default HTTP User-Agent header")
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig, description="Logging configuration block"

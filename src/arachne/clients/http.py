@@ -1,5 +1,8 @@
 """Shared HTTP helpers for Arachne fetchers."""
 
+from __future__ import annotations
+
+import asyncio
 from collections.abc import Mapping
 from typing import Any
 
@@ -8,29 +11,70 @@ import httpx
 DEFAULT_TIMEOUT = 30.0
 
 
+class ThrottledClient:
+    """A wrapper for httpx.AsyncClient that enforces a global concurrency limit.
+
+    This ensures that the total number of outoing requests across all spiders
+    does not exceed a certain threshold, preventing rate-limiting.
+    """
+
+    def __init__(self, client: httpx.AsyncClient, semaphore: asyncio.Semaphore) -> None:
+        self._client = client
+        self._semaphore = semaphore
+
+    async def get(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        async with self._semaphore:
+            return await self._client.get(*args, **kwargs)
+
+    async def post(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        async with self._semaphore:
+            return await self._client.post(*args, **kwargs)
+
+    async def request(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        async with self._semaphore:
+            return await self._client.request(*args, **kwargs)
+
+    async def __aenter__(self) -> ThrottledClient:
+        await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self._client.__aexit__(*args)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client, name)
+
+
 def create_client(
     timeout_seconds: float = DEFAULT_TIMEOUT,
     user_agent: str | None = None,
-) -> httpx.AsyncClient:
+    request_concurrency: int | None = None,
+) -> httpx.AsyncClient | ThrottledClient:
     """Create a configured HTTPX async client.
 
     Args:
         timeout_seconds: Request timeout in seconds.
         user_agent: Optional custom User-Agent string.
+        request_concurrency: Optional limit for concurrent HTTP requests.
 
     Returns:
-        httpx.AsyncClient: A configured async HTTP client.
+        httpx.AsyncClient | ThrottledClient: A configured async HTTP client.
     """
     headers = {"User-Agent": user_agent} if user_agent else None
-    return httpx.AsyncClient(
+    client = httpx.AsyncClient(
         follow_redirects=True,
         timeout=timeout_seconds,
         headers=headers,
     )
 
+    if request_concurrency and request_concurrency > 0:
+        return ThrottledClient(client, asyncio.Semaphore(request_concurrency))
+
+    return client
+
 
 async def fetch_json(
-    client: httpx.AsyncClient,
+    client: httpx.AsyncClient | ThrottledClient,
     url: str,
     params: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
@@ -55,7 +99,7 @@ async def fetch_json(
 
 
 async def fetch_paginated_json(
-    client: httpx.AsyncClient,
+    client: httpx.AsyncClient | ThrottledClient,
     url: str,
     params: Mapping[str, Any] | None = None,
     headers: Mapping[str, str] | None = None,
