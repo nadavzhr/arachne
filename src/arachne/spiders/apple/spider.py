@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import urllib.parse
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-import httpx
 from pydantic import BaseModel, Field
 
 import arachne.config.loader
@@ -16,6 +15,9 @@ import arachne.utils.normalization
 from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.apple.params import AppleParams
 from arachne.utils.type_casts import as_dict, as_list
+
+if TYPE_CHECKING:
+    from arachne.clients.base import FetchContext
 
 _BASE_URL = "https://jobs.apple.com"
 _API_URL = f"{_BASE_URL}/api/v1/search"
@@ -146,7 +148,7 @@ class AppleSpider(arachne.spiders.base.Spider):
 
     # region Public interface
 
-    async def fetch(self, client: httpx.AsyncClient, search: JobSearchCriteria) -> list[_PageDump]:
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> list[_PageDump]:
         """Fetch job listings from Apple's paginated search API.
 
         This method first acquires a CSRF token from Apple's CSRF endpoint and then
@@ -154,7 +156,7 @@ class AppleSpider(arachne.spiders.base.Spider):
         the maximum page limit is reached.
 
         Args:
-            client: The HTTP client for making requests.
+            ctx: The fetch context containing HTTP and browser clients.
             search: The search criteria to apply.
 
         Returns:
@@ -167,7 +169,7 @@ class AppleSpider(arachne.spiders.base.Spider):
         search_url = self._search_url()
         self.log.info("search page prepared: url=%s", search_url)
 
-        csrf_token = await self._get_csrf_token(client)
+        csrf_token = await self._get_csrf_token(ctx)
         filters = self._build_filters()
         dumps: list[_PageDump] = []
 
@@ -175,7 +177,7 @@ class AppleSpider(arachne.spiders.base.Spider):
             self.log.info("page fetch started: page=%d", page)
             payload = self._build_payload(page, filters)
 
-            resp = await client.post(
+            resp = await ctx.http.post(
                 _API_URL,
                 json=payload,
                 headers=self._build_headers(search_url, csrf_token),
@@ -395,16 +397,16 @@ class AppleSpider(arachne.spiders.base.Spider):
             headers["x-apple-csrf-token"] = csrf_token
         return headers
 
-    async def _get_csrf_token(self, client: httpx.AsyncClient) -> str | None:
+    async def _get_csrf_token(self, ctx: FetchContext) -> str | None:
         """Acquire a CSRF token from Apple's API.
 
         Args:
-            client: The HTTP client for making the request.
+            ctx: The fetch context containing the HTTP client.
 
         Returns:
             str | None: The CSRF token if successful, otherwise None.
         """
-        resp = await client.get(_CSRF_URL, headers={"accept": "*/*"})
+        resp = await ctx.http.get(_CSRF_URL, headers={"accept": "*/*"})
         return str(resp.headers.get("x-apple-csrf-token")) if resp.status_code == 200 else None
 
 

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
-
-from httpx import AsyncClient
 
 from arachne.clients.http import fetch_json
 from arachne.config.loader import SpiderConfig
@@ -19,6 +17,9 @@ from arachne.utils.normalization import (
     parse_datetime,
     try_parse_json_string,
 )
+
+if TYPE_CHECKING:
+    from arachne.clients.base import FetchContext
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +35,13 @@ class AmazonSpider(BaseSpider):
         """
         super().__init__(cfg)
 
-    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> Any:
         """Fetch raw job data from Amazon's public JSON endpoint.
 
         Maps keywords to 'search_term' and locations to 'location' via AmazonParams.
 
         Args:
-            client: The HTTP client for requests.
+            ctx: The fetch context containing HTTP and browser clients.
             search: The search criteria.
 
         Returns:
@@ -49,7 +50,7 @@ class AmazonSpider(BaseSpider):
         params = AmazonParams.from_search(search)
         self.log.info("http request started: url=%s", self.cfg.url)
         raw = await fetch_json(
-            client, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
+            ctx.http, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
         )
         return raw if isinstance(raw, list) else [raw]
 

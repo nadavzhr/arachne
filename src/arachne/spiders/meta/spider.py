@@ -8,20 +8,21 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs
 
-from httpx import AsyncClient
 from playwright.async_api import Locator, Page, Response
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from arachne.clients.playwright import browser_session
 from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.base import Spider as BaseSpider
 from arachne.spiders.meta.params import MetaParams
 from arachne.utils.normalization import first_any, first_str, parse_datetime
+
+if TYPE_CHECKING:
+    from arachne.clients.base import FetchContext
 
 META_JOBS_URL = "https://www.metacareers.com/jobs"
 META_GRAPHQL_URL = "https://www.metacareers.com/graphql"
@@ -387,22 +388,21 @@ class MetaSpider(BaseSpider):
         payload["variables"] = json.dumps(variables)
         return payload
 
-    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, Any]]:
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> list[dict[str, Any]]:
         """Fetch job listings from Meta Careers.
 
         Uses Playwright to capture session context and replay GraphQL requests.
 
         Args:
-            client: The HTTPX client (unused, uses Playwright context).
+            ctx: The fetch context containing HTTP and browser clients.
             search: Standard search criteria.
 
         Returns:
             list[dict[str, Any]]: Raw GraphQL response payloads.
         """
-        del client  # Unused.
         params = MetaParams.from_search(search)
 
-        async with browser_session(user_agent=self.cfg.user_agent) as page:
+        async with ctx.browser.new_page(user_agent=self.cfg.user_agent) as page:
             captured = await self._capture_graphql_payload(page, params)
             base_payload: dict[str, str] = {}
             if captured:
@@ -686,8 +686,13 @@ class MetaSpider(BaseSpider):
 
 async def _run_demo() -> None:
     """Run a demo of the Meta spider."""
-    cfg = SpiderConfig(url=META_JOBS_URL)
+    import httpx
+
+    from arachne.clients.base import FetchContext
+    from arachne.clients.playwright import PlaywrightManager
     from arachne.logging import configure_logging, spider_logger
+
+    cfg = SpiderConfig(url=META_JOBS_URL)
 
     configure_logging(
         enabled=True,
@@ -697,11 +702,17 @@ async def _run_demo() -> None:
         spider_directory="spiders",
     )
     demo_log = spider_logger("meta", __name__)
-    async with AsyncClient() as client:
-        src = MetaSpider(cfg)
-        raw = await src.fetch(client, JobSearchCriteria())
-        jobs = src.normalize(raw)
-        demo_log.info("demo completed: jobs=%d", len(jobs))
+    async with httpx.AsyncClient() as client:
+        browser = PlaywrightManager()
+        await browser.start()
+        try:
+            ctx = FetchContext(http=client, browser=browser)
+            src = MetaSpider(cfg)
+            raw = await src.fetch(ctx, JobSearchCriteria())
+            jobs = src.normalize(raw)
+            demo_log.info("demo completed: jobs=%d", len(jobs))
+        finally:
+            await browser.stop()
 
 
 # Backwards-compatible name used by dynamic loader

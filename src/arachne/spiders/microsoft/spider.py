@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
-
-from httpx import AsyncClient
 
 from arachne.clients.http import fetch_paginated_json
 from arachne.config.loader import SpiderConfig
@@ -15,6 +13,9 @@ from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.base import Spider as BaseSpider
 from arachne.spiders.microsoft.params import MicrosoftParams
 from arachne.utils.normalization import build_url, parse_datetime
+
+if TYPE_CHECKING:
+    from arachne.clients.base import FetchContext
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +36,11 @@ class MicrosoftSpider(BaseSpider):
         """
         super().__init__(cfg)
 
-    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> Any:
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> Any:
         """Fetch job listings from Microsoft Careers.
 
         Args:
-            client: The HTTPX client to use for requests.
+            ctx: The fetch context containing HTTP and browser clients.
             search: Standard search criteria.
 
         Returns:
@@ -48,7 +49,7 @@ class MicrosoftSpider(BaseSpider):
         params = MicrosoftParams.from_search(search)
         self.log.info("paginated http request started: url=%s", self.cfg.url)
         return await fetch_paginated_json(
-            client, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
+            ctx.http, self.cfg.url, params=params.to_query(), headers=self.cfg.headers
         )
 
     def normalize(self, raw: Any) -> list[JobPosting]:

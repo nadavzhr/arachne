@@ -5,8 +5,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-import httpx
-
+import arachne.clients.base
 import arachne.models.job
 import arachne.models.schema
 import arachne.services.filters
@@ -54,7 +53,7 @@ def _ensure_spider(
 
 async def execute_search(
     spider: arachne.spiders.base.Spider,
-    client: httpx.AsyncClient,
+    ctx: arachne.clients.base.FetchContext,
     search: arachne.models.schema.JobSearchCriteria,
     filters: arachne.models.schema.Filters | None = None,
 ) -> SearchResult:
@@ -64,14 +63,14 @@ async def execute_search(
 
     Args:
         spider: The spider instance to use.
-        client: The HTTP client for requests.
+        ctx: The fetch context containing HTTP and browser clients.
         search: The search criteria.
         filters: Optional filters to apply after normalization.
 
     Returns:
         SearchResult: The aggregated results of the search pipeline.
     """
-    raw = await spider.fetch(client, search)
+    raw = await spider.fetch(ctx, search)
 
     normalize_error: Exception | None = None
     try:

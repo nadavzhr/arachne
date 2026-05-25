@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
-
-import httpx
+from typing import TYPE_CHECKING, Any
 
 from arachne.config.loader import SpiderConfig
 from arachne.logging import spider_logger
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
+
+if TYPE_CHECKING:
+    from arachne.clients.base import FetchContext
 
 
 class Spider(ABC):
@@ -27,11 +28,11 @@ class Spider(ABC):
         self.log = spider_logger(self.name, self.__class__.__module__)
 
     @abstractmethod
-    async def fetch(self, client: httpx.AsyncClient, search: JobSearchCriteria) -> Any:
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> Any:
         """Fetch raw payload from the provider.
 
         Args:
-            client: The HTTP client to use for the request.
+            ctx: The fetch context containing HTTP and browser clients.
             search: The search criteria to apply.
 
         Returns:

@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from arachne.clients.http import create_client
+from arachne.clients.playwright import PlaywrightManager
 from arachne.config.loader import load_all
 from arachne.logging import configure_logging, timestamped_log_name
 from arachne.services.jobs import JobService
@@ -119,9 +120,11 @@ def run(
     async def _run() -> None:
         storage = JsonFileJobStorage(Path(global_cfg.data_dir))
         async with create_client(global_cfg.timeout_seconds, global_cfg.user_agent) as client:
+            browser = PlaywrightManager(headless=not debug)
             scraper = ScraperService(
                 storage=storage,
                 client=client,
+                browser=browser,
                 concurrency=global_cfg.concurrency,
             )
 

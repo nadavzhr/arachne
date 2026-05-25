@@ -9,9 +9,16 @@ The primary client for interacting with JSON APIs.
 - **Asynchronous**: Built on top of `httpx.AsyncClient`.
 - **Pre-configured**: Includes default timeouts and headers defined in `global.yaml`.
 
-### `playwright.py` (Planned)
+### `playwright.py`
 For job portals that are heavy on JavaScript and do not expose a clean JSON API.
-- Will provide a wrapper around Playwright for headless browser scraping.
+- **PlaywrightManager**: Centrally manages the lifecycle of the browser process.
+- **Isolated Contexts**: Provides ephemeral browser contexts and pages per spider run.
+
+## Fetch Context
+The `FetchContext` (defined in `base.py`) is the primary object passed to spiders. It contains:
+- `http`: An instance of `httpx.AsyncClient`.
+- `browser`: The `PlaywrightManager` instance.
+
 
 ## Why Abstractions?
 1. **Consistency**: Ensures every outgoing request uses the same `User-Agent`.

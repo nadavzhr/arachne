@@ -7,19 +7,20 @@ job card elements. Returns raw job data; normalization converts to JobPosting mo
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
-from httpx import AsyncClient
 from playwright.async_api import Locator
 
-from arachne.clients.playwright import browser_session
 from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.base import Spider as BaseSpider
 from arachne.spiders.google.params import GoogleParams
 from arachne.utils.normalization import build_query_string
+
+if TYPE_CHECKING:
+    from arachne.clients.base import FetchContext
 
 # Configuration Constants
 BASE_URL = "https://www.google.com/about/careers/applications/"
@@ -98,23 +99,22 @@ class GoogleSpider(BaseSpider):
             self.log.warning("job card parse failed: %s", exc)
             return {"title": "Error Parsing", "location": "Error", "url": "Error"}
 
-    async def fetch(self, client: AsyncClient, search: JobSearchCriteria) -> list[dict[str, str]]:
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> list[dict[str, str]]:
         """Fetch jobs by rendering Google Careers page and scraping job cards.
 
         Since Google does not provide a public API, this method relies on web scraping
         via Playwright. Pagination is currently not supported.
 
         Args:
-            client: The HTTP client (unused, as Playwright handles requests).
+            ctx: The fetch context containing HTTP and browser clients.
             search: The search criteria to apply.
 
         Returns:
             list[dict[str, str]]: List of raw job dictionaries extracted from the page.
         """
-        del client  # Unused.
         params = GoogleParams.from_search(search)
 
-        async with browser_session(user_agent=self.cfg.user_agent) as page:
+        async with ctx.browser.new_page(user_agent=self.cfg.user_agent) as page:
             search_url = self._build_search_url(params)
             self.log.info("search page opened: url=%s", search_url)
             await page.goto(search_url, wait_until="load")
