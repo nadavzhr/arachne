@@ -25,5 +25,5 @@ meta:
 
 google:
   enabled: true
-  url: https://www.google.com/about/careers/applications/jobs/results
+  url: https://www.google.com/about/careers/applications/_/HiringCportalFrontendUi/data/batchexecute
   headers: {}
