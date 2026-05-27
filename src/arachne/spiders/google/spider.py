@@ -5,17 +5,15 @@ from __future__ import annotations
 import itertools
 import json
 import logging
-import typing
+from typing import Any
 
+import arachne.clients.base
 from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.base import Spider as BaseSpider
 from arachne.spiders.google import utils
 from arachne.spiders.google.params import GoogleParams
-
-if typing.TYPE_CHECKING:
-    import arachne.clients.base
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +48,7 @@ class GoogleSpider(BaseSpider):
         self,
         ctx: arachne.clients.base.FetchContext,
         search: JobSearchCriteria,
-    ) -> list[typing.Any]:
+    ) -> list[Any]:
         """Fetch raw job data from Google Careers batchexecute.
 
         Args:
@@ -58,10 +56,10 @@ class GoogleSpider(BaseSpider):
             search: Standard search criteria.
 
         Returns:
-            list[typing.Any]: List of raw response payloads for each page.
+            list[Any]: List of raw response payloads for each page.
         """
         params = GoogleParams.from_search(search)
-        all_pages: list[typing.Any] = []
+        all_pages: list[Any] = []
 
         headers = dict(self.cfg.headers or {})
         headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
@@ -73,7 +71,7 @@ class GoogleSpider(BaseSpider):
                 query=search.title,
                 page_index=page,
             )
-            f_req: list[list[list[typing.Any]]] = [
+            f_req: list[list[list[Any]]] = [
                 [[BATCHEXECUTE_METHOD, json.dumps([inner_params]), None, "3"]]
             ]
             payload = {"f.req": json.dumps(f_req)}
@@ -104,7 +102,7 @@ class GoogleSpider(BaseSpider):
 
         return all_pages
 
-    def normalize(self, raw: typing.Any) -> list[JobPosting]:
+    def normalize(self, raw: Any) -> list[JobPosting]:
         """Normalize raw Google data into JobPosting models.
 
         Args:

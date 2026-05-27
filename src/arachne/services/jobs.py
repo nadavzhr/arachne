@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from arachne.models.job import JobPosting
-
-if TYPE_CHECKING:
-    from arachne.storage.base import JobStorage
+from arachne.storage.base import JobStorage
 
 
 class JobService:

@@ -4,19 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+
+import httpx
 
 from arachne.clients.base import FetchContext
+from arachne.clients.http import ThrottledClient
+from arachne.config.loader import SpiderConfig
+from arachne.config.profile import SearchProfile
 from arachne.services import search as search_service
 from arachne.spiders import get_spider_class
-
-if TYPE_CHECKING:
-    import httpx
-
-    from arachne.clients.http import ThrottledClient
-    from arachne.config.loader import SpiderConfig
-    from arachne.config.profile import SearchProfile
-    from arachne.storage.base import JobStorage
+from arachne.storage.base import JobStorage
 
 logger = logging.getLogger(__name__)
 

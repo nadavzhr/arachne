@@ -6,7 +6,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 import pydantic
 import typer
@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 
 from arachne.clients.http import create_client
-from arachne.config.loader import load_all
+from arachne.config.loader import GlobalConfig, SpiderConfig, load_all
 from arachne.logging import configure_logging, timestamped_log_name
 from arachne.services.jobs import JobService
 from arachne.services.profiles import ProfileService
@@ -22,9 +22,6 @@ from arachne.services.scraper import ScraperService
 from arachne.storage.base import JobStorage
 from arachne.storage.json import JsonFileJobStorage
 from arachne.storage.sqlite import SqliteJobStorage
-
-if TYPE_CHECKING:
-    from arachne.config.loader import GlobalConfig, SpiderConfig
 
 app = typer.Typer(
     help="Arachne: A job scraping aggregator for tech company listings.",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import urllib.parse
-from typing import TYPE_CHECKING, TypedDict
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -12,12 +12,10 @@ import arachne.config.loader
 import arachne.models.job
 import arachne.spiders.base
 import arachne.utils.normalization
+from arachne.clients.base import FetchContext
 from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.apple.params import AppleParams
 from arachne.utils.type_casts import as_dict, as_list
-
-if TYPE_CHECKING:
-    from arachne.clients.base import FetchContext
 
 _BASE_URL = "https://jobs.apple.com"
 _API_URL = f"{_BASE_URL}/api/v1/search"

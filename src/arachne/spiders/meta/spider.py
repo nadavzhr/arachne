@@ -13,16 +13,14 @@ import asyncio
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from arachne.clients.base import FetchContext
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
 from arachne.spiders.base import Spider as BaseSpider
 from arachne.spiders.meta import utils
 from arachne.spiders.meta.params import MetaParams
-
-if TYPE_CHECKING:
-    from arachne.clients.base import FetchContext
 
 logger = logging.getLogger(__name__)
 

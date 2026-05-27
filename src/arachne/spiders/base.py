@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from arachne.clients.base import FetchContext
 from arachne.config.loader import SpiderConfig
 from arachne.logging import spider_logger
 from arachne.models.job import JobPosting
 from arachne.models.schema import JobSearchCriteria
-
-if TYPE_CHECKING:
-    from arachne.clients.base import FetchContext
 
 
 class Spider(ABC):

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import urlparse
 
+from arachne.clients.base import FetchContext
 from arachne.clients.http import fetch_json
 from arachne.config.loader import SpiderConfig
 from arachne.models.job import JobPosting
@@ -17,9 +18,6 @@ from arachne.utils.normalization import (
     parse_datetime,
     try_parse_json_string,
 )
-
-if TYPE_CHECKING:
-    from arachne.clients.base import FetchContext
 
 logger = logging.getLogger(__name__)
 
