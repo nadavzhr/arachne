@@ -97,6 +97,17 @@ graph TD
 
 ---
 
+## 💾 Git Scraping
+
+This project is designed with a **"Git Scraping"** philosophy. 
+
+By default, the scraped job data is persisted in a local SQLite database under `data/arachne.db` and intentionally tracked by version control. This approach is taken to enable:
+- **Serverless Web UI:** The repository acts as a flat-file database, allowing the upcoming GitHub Pages site to display live data without needing an external database like Supabase or PostgreSQL.
+
+**Note for Forkers/Users:** If you prefer to use Arachne as a pure tool without committing data back to your repo, simply add `data/*.db` to your `.gitignore`. The project remains fully functional for local-only use.
+
+---
+
 ## ⚙️ Configuration
 
 -   **`config/global.yaml`**: System-wide settings (concurrency, storage type, logging).
