@@ -77,14 +77,14 @@ class DummySpider(arachne.spiders.base.Spider):
 
 @pytest.mark.anyio
 async def test_scraper_service_runs_without_crashing(
-    temp_config_dir: pathlib.Path, mocker: Any, tmp_path: pathlib.Path
+    temp_config_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
     # Use tmp_path for data so it doesn't pollute real project
     data_dir = tmp_path / "data"
 
     global_cfg, spiders = arachne.config.loader.load_all(temp_config_dir)
 
-    mocker.patch("arachne.services.scraper.get_spider_class", return_value=DummySpider)
+    monkeypatch.setattr("arachne.services.scraper.get_spider_class", lambda name: DummySpider)
 
     storage = arachne.storage.json.JsonFileJobStorage(data_dir)
     profile = arachne.config.profile.SearchProfile()

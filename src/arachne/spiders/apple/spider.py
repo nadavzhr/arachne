@@ -215,22 +215,17 @@ class AppleSpider(arachne.spiders.base.Spider):
     def normalize(self, raw: object) -> list[arachne.models.job.JobPosting]:
         """Convert raw paginated responses from Apple's API into JobPosting models.
 
-        This method deduplicates job postings across pages using their unique IDs
-        and maps Apple's internal schema to the standardized JobPosting model.
-
         Args:
             raw: The raw data (list of page dumps) from fetch().
 
         Returns:
-            list[arachne.models.job.JobPosting]: A list of unique, normalized job postings.
+            list[arachne.models.job.JobPosting]: A list of normalized job postings.
         """
         raw_pages = as_list(raw)
         if raw_pages is None:
             return []
 
-        # Apple API can return duplicate job records across pages
-        # so we dedupe by job ID before normalization.
-        deduped: dict[str, arachne.models.job.JobPosting] = {}
+        records: list[arachne.models.job.JobPosting] = []
 
         for page in raw_pages:
             page_payload = as_dict(page)
@@ -238,13 +233,10 @@ class AppleSpider(arachne.spiders.base.Spider):
                 continue
             for job in self._parse_results(page_payload.get("response", {})):
                 record = self._to_record(job, self.params.language)
-                if record is not None and record.external_id not in deduped:
-                    # best_id maps to external_id
-                    ext_id = record.external_id or ""
-                    if ext_id not in deduped:
-                        deduped[ext_id] = record
+                if record is not None:
+                    records.append(record)
 
-        return list(deduped.values())
+        return records
 
     # region Parsing helpers
 

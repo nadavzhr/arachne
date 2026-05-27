@@ -164,17 +164,7 @@ class MetaSpider(BaseSpider):
                     )
                 )
 
-        return self._dedupe_jobs(all_jobs)
-
-    def _dedupe_jobs(self, records: list[JobPosting]) -> list[JobPosting]:
-        seen: set[str] = set()
-        unique: list[JobPosting] = []
-        for r in records:
-            key = r.external_id or str(r.url) or r.title
-            if key not in seen:
-                seen.add(key)
-                unique.append(r)
-        return unique
+        return all_jobs
 
 
 Spider = MetaSpider

@@ -51,6 +51,28 @@ def _ensure_spider(
     return normalized
 
 
+def _dedupe_jobs(
+    jobs: list[arachne.models.job.JobPosting],
+) -> list[arachne.models.job.JobPosting]:
+    """Remove duplicate job postings based on external_id.
+
+    Args:
+        jobs: List of job postings to deduplicate.
+
+    Returns:
+        list[arachne.models.job.JobPosting]: Deduplicated list of job postings.
+    """
+    seen: set[str] = set()
+    unique: list[arachne.models.job.JobPosting] = []
+    for job in jobs:
+        key = str(job.external_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(job)
+    return unique
+
+
 async def execute_search(
     spider: arachne.spiders.base.Spider,
     ctx: arachne.clients.base.FetchContext,
@@ -81,6 +103,7 @@ async def execute_search(
         normalized = []
 
     normalized = _ensure_spider(spider.name, normalized)
+    normalized = _dedupe_jobs(normalized)
     filtered = arachne.services.filters.apply_filters(normalized, filters)
 
     return SearchResult(
