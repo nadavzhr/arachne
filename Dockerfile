@@ -12,10 +12,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install dependencies
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy source code
 COPY . .
+
+# Install the project itself
+RUN uv sync --frozen --no-dev
 
 # Set environment variables
 ENV PYTHONPATH=/app/src

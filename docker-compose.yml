@@ -1,12 +1,13 @@
-version: "3.9"
-
 services:
   app:
     build:
       context: .
-      target: dev
     
     working_dir: /app
+
+    # We override the ENTRYPOINT from the Dockerfile to allow 
+    # running arbitrary bash commands in development.
+    entrypoint: []
 
     volumes:
       - .:/app

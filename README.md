@@ -107,35 +107,27 @@ graph TD
 
 ## 🐳 Docker
 
-> **Just a quick note:**
-> I initially went down the path of fully Dockerizing this project to ensure environment consistency across local dev and CI. However, after seeing how blazingly fast the GitHub Actions workflow ran natively, I decided to stick with just directly using `uv` — it has gotten so good at instant, isolated environments that Dockerizing local dev and CI actually adds *unnecessary overhead*.
-> 
-> Pulling a 700MB+ Docker image on every CI run or local spin-up is overkill when `uv run` handles dependencies natively in milliseconds with zero setup.
-> 
-> I haven't burned the Docker setup—it is fully optimized and maintained below. It's still highly useful if you ever want to deploy this to a cloud provider (AWS, Render, etc.) or just want to tinker with it in a contained box. But for local development and GitHub Actions workflows, sticking to native `uv` is the recommended path.
-
-Arachne uses a multi-stage build.
+Arachne is fully containerized for both development and production use.
 
 ### Development (Live Sync)
+The Docker Compose setup mounts your local directory into the container, allowing you to develop with live code changes while ensuring a consistent environment.
+
 ```bash
-# Start background dev container
-docker-compose up -d
+# Build and run the default scrape profile
+docker compose up --build
 
-# View logs
-docker-compose logs -f app
-
-# Run commands
-docker-compose exec app uv run arachne run
-docker-compose exec app uv run pytest
-
-# Stop
-docker-compose down
+# Run specific commands or spiders
+docker compose run --rm app uv run arachne run -s meta
+docker compose run --rm app uv run pytest
 ```
 
-### Production Build
+### Production / Standalone
 ```bash
-docker build -t arachne:prod --target prod .
-docker run --rm -v $(pwd)/data:/app/data arachne:prod run
+# Build the production image
+docker build -t arachne:latest .
+
+# Run a scrape (mount data directory to persist the SQLite DB)
+docker run --rm -v $(pwd)/data:/app/data arachne:latest
 ```
 
 ---
