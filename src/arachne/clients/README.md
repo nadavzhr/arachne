@@ -1,26 +1,23 @@
-# Arachne Clients
+# 🔌 Arachne Clients
 
-This package provides abstractions for network communication. By isolating the HTTP and browser logic, we can centrally manage timeouts, user-agent rotation, and retry logic.
+This package contains the shared HTTP clients used by Arachne spiders.
 
-## Supported Clients
+## 🧱 Core Clients
 
-### `http.py` (httpx)
-The primary client for interacting with JSON APIs.
-- **Asynchronous**: Built on top of `httpx.AsyncClient`.
-- **Pre-configured**: Includes default timeouts and headers defined in `global.yaml`.
+### `http.py`
+- **ThrottledClient**: A wrapper around `httpx.AsyncClient` that enforces global concurrency limits and provides automatic retries for transient network errors.
+- **Helper Functions**: Includes `fetch_json` and `fetch_paginated_json` for common API patterns.
 
-### `playwright.py`
-For job portals that are heavy on JavaScript and do not expose a clean JSON API.
-- **PlaywrightManager**: Centrally manages the lifecycle of the browser process.
-- **Isolated Contexts**: Provides ephemeral browser contexts and pages per spider run.
+## 🏗️ Architecture
 
-## Fetch Context
-The `FetchContext` (defined in `base.py`) is the primary object passed to spiders. It contains:
-- `http`: An instance of `httpx.AsyncClient`.
-- `browser`: The `PlaywrightManager` instance.
+Arachne uses a shared client model to ensure resource efficiency and compliance with provider rate limits. Spiders receive a `FetchContext` during their execution, which contains:
 
+- `http`: The primary `ThrottledClient` instance for making requests.
 
-## Why Abstractions?
-1. **Consistency**: Ensures every outgoing request uses the same `User-Agent`.
-2. **Resilience**: A central place to implement exponential backoff or rate-limiting.
-3. **Mockability**: Simplifies testing by allowing us to swap the real client with a mock in one place.
+# 🧑‍💻 Adding New Clients
+To add a new client, follow these steps:
+1. Create a new client class in `arachne.clients` that encapsulates the desired functionality.
+2. Ensure the client is designed to be thread-safe and can be shared across multiple spiders.
+3. Update the `FetchContext` to include an instance of your new client.
+4. In your spider, access the new client via the `FetchContext` and use it to perform the necessary operations.
+

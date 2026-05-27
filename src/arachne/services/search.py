@@ -63,8 +63,9 @@ async def execute_search(
 
     Args:
         spider: The spider instance to use.
-        ctx: The fetch context containing HTTP and browser clients.
-        search: The search criteria.
+        ctx: The fetch context containing shared clients.
+        search: The search criteria to apply.
+
         filters: Optional filters to apply after normalization.
 
     Returns:

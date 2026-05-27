@@ -12,7 +12,6 @@ import arachne.services.scraper
 import arachne.spiders.base
 import arachne.storage.json
 from arachne.clients.http import create_client
-from arachne.clients.playwright import PlaywrightManager
 
 
 @pytest.fixture
@@ -91,11 +90,9 @@ async def test_scraper_service_runs_without_crashing(
     profile = arachne.config.profile.SearchProfile()
 
     async with create_client(global_cfg.timeout_seconds, global_cfg.user_agent) as client:
-        browser = PlaywrightManager(headless=True)
         scraper = arachne.services.scraper.ScraperService(
             storage=storage,
             client=client,
-            browser=browser,
             concurrency=global_cfg.concurrency,
         )
 

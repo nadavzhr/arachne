@@ -40,7 +40,7 @@ class MicrosoftSpider(BaseSpider):
         """Fetch job listings from Microsoft Careers.
 
         Args:
-            ctx: The fetch context containing HTTP and browser clients.
+            ctx: The fetch context containing shared clients.
             search: Standard search criteria.
 
         Returns:

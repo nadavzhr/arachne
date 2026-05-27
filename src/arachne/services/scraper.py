@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     import httpx
 
     from arachne.clients.http import ThrottledClient
-    from arachne.clients.playwright import PlaywrightManager
     from arachne.config.loader import SpiderConfig
     from arachne.config.profile import SearchProfile
     from arachne.storage.base import JobStorage
@@ -33,7 +32,6 @@ class ScraperService:
         self,
         storage: JobStorage,
         client: httpx.AsyncClient | ThrottledClient,
-        browser: PlaywrightManager,
         concurrency: int = 1,
     ) -> None:
         """Initialize the scraper service.
@@ -41,12 +39,10 @@ class ScraperService:
         Args:
             storage: The storage backend to persist results.
             client: The HTTP client to use for requests.
-            browser: The Playwright manager for browser-based scraping.
             concurrency: Maximum number of spiders to run in parallel.
         """
         self.storage = storage
         self.client = client
-        self.browser = browser
         self.semaphore = asyncio.Semaphore(max(1, concurrency))
 
     async def run_spider(
@@ -69,7 +65,7 @@ class ScraperService:
         SpiderCls = get_spider_class(name)
         spider = SpiderCls(cfg)
 
-        ctx = FetchContext(http=self.client, browser=self.browser)
+        ctx = FetchContext(http=self.client)
 
         async with self.semaphore:
             spider.log.info("fetch started")
@@ -107,19 +103,15 @@ class ScraperService:
         """
         tasks: dict[str, asyncio.Task[search_service.SearchResult]] = {}
 
-        await self.browser.start()
-        try:
-            for name, cfg in spiders_config.items():
-                if not cfg.enabled:
-                    continue
-                tasks[name] = asyncio.create_task(self.run_spider(name, cfg, profile))
+        for name, cfg in spiders_config.items():
+            if not cfg.enabled:
+                continue
+            tasks[name] = asyncio.create_task(self.run_spider(name, cfg, profile))
 
-            if not tasks:
-                return {}
+        if not tasks:
+            return {}
 
-            results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-        finally:
-            await self.browser.stop()
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
         final_results: dict[str, search_service.SearchResult | BaseException] = {}
         for name, result in zip(tasks.keys(), results, strict=True):

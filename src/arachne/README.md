@@ -6,7 +6,7 @@ This directory contains the core logic for the Arachne job aggregation engine. I
 
 -   **`cli.py`**: The Typer-powered CLI entrypoint. It bootstraps the application, configures logging, and maps CLI commands to service methods.
 -   **`logging.py`**: A specialized logging system that supports central logging and per-spider log isolation.
--   **`clients/`**: HTTP and Browser client abstractions.
+-   **`clients/`**: HTTP client abstractions.
 -   **`config/`**: Configuration loading and Pydantic validation for global and spider-specific settings.
 -   **`models/`**: Central data models (JobPosting, SearchCriteria, etc.) that define the project's "language".
 -   **`services/`**: The "brain" of the application. High-level orchestrators that coordinate fetching, filtering, and storage.

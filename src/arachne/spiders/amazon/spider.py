@@ -41,7 +41,7 @@ class AmazonSpider(BaseSpider):
         Maps keywords to 'search_term' and locations to 'location' via AmazonParams.
 
         Args:
-            ctx: The fetch context containing HTTP and browser clients.
+            ctx: The fetch context containing shared clients.
             search: The search criteria.
 
         Returns:

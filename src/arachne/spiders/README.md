@@ -25,7 +25,7 @@ from arachne.models.job import JobPosting
 class NewCompanySpider(BaseSpider):
     async def fetch(self, ctx, search):
         # 1. Map 'search' criteria to API params
-        # 2. Make the HTTP call using 'ctx.http' (or 'ctx.browser' for Playwright)
+        # 2. Make the HTTP call using 'ctx.http'
         # 3. Return the raw payload (usually a dict or list)
         pass
 

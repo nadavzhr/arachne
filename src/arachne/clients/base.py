@@ -3,21 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import httpx
+import httpx
 
-    from arachne.clients.http import ThrottledClient
-    from arachne.clients.playwright import PlaywrightManager
+from arachne.clients.http import ThrottledClient
 
 
 @dataclass(frozen=True)
 class FetchContext:
     """Context provided to spiders during the fetch phase.
 
-    Contains shared clients for HTTP and browser-based scraping.
+    Contains shared clients for HTTP scraping.
     """
 
     http: httpx.AsyncClient | ThrottledClient
-    browser: PlaywrightManager

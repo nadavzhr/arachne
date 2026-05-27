@@ -2,7 +2,6 @@ import httpx
 import pytest
 
 import arachne.clients.base
-import arachne.clients.playwright
 import arachne.config.loader
 import arachne.models.job
 import arachne.models.schema
@@ -73,8 +72,7 @@ async def test_execute_search_applies_filters_and_spider() -> None:
     )
 
     async with httpx.AsyncClient() as client:
-        browser = arachne.clients.playwright.PlaywrightManager()
-        ctx = arachne.clients.base.FetchContext(http=client, browser=browser)
+        ctx = arachne.clients.base.FetchContext(http=client)
         result = await search_service.execute_search(
             spider=spider,
             ctx=ctx,
@@ -94,8 +92,7 @@ async def test_execute_search_reports_normalize_errors() -> None:
     spider = BrokenSpider(cfg)
 
     async with httpx.AsyncClient() as client:
-        browser = arachne.clients.playwright.PlaywrightManager()
-        ctx = arachne.clients.base.FetchContext(http=client, browser=browser)
+        ctx = arachne.clients.base.FetchContext(http=client)
         result = await search_service.execute_search(
             spider=spider,
             ctx=ctx,

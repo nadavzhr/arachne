@@ -79,7 +79,7 @@ uv run arachne profiles
 Arachne is built on a modular "Service-Adapter" architecture:
 
 1.  **CLI/Entrypoint (`cli.py`):** Bootstraps the environment and orchestrates the services.
-2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages the lifecycle of shared clients (HTTP and Browser).
+2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages the lifecycle of shared HTTP clients.
 3.  **Spider Adapters:** Provider-specific modules that receive a `FetchContext` to handle the "Fetch" phase and subsequently "Normalize" data.
 4.  **Filter Service:** Applies search profiles (keywords, remote status, etc.) to the normalized data.
 5.  **Storage Layer:** Pluggable interface for persisting data (defaults to **SQLite** for deduplication and history).
@@ -87,7 +87,7 @@ Arachne is built on a modular "Service-Adapter" architecture:
 ```mermaid
 graph TD
     CLI[CLI / API] --> Scraper[Scraper Service]
-    Scraper --> ClientMgr[Client/Browser Manager]
+    Scraper --> ClientMgr[HTTP Client Manager]
     ClientMgr --> FetchCtx[FetchContext]
     FetchCtx --> Spider[Spider Adapters]
     Spider --> Normalize[Normalize: Pydantic]
@@ -110,7 +110,7 @@ graph TD
 > **Just a quick note:**
 > I initially went down the path of fully Dockerizing this project to ensure environment consistency across local dev and CI. However, after seeing how blazingly fast the GitHub Actions workflow ran natively, I decided to stick with just directly using `uv` — it has gotten so good at instant, isolated environments that Dockerizing local dev and CI actually adds *unnecessary overhead*.
 > 
-> Pulling a 700MB+ Playwright Docker image on every CI run or local spin-up is overkill when `uv run` handles dependencies natively in milliseconds with zero setup.
+> Pulling a 700MB+ Docker image on every CI run or local spin-up is overkill when `uv run` handles dependencies natively in milliseconds with zero setup.
 > 
 > I haven't burned the Docker setup—it is fully optimized and maintained below. It's still highly useful if you ever want to deploy this to a cloud provider (AWS, Render, etc.) or just want to tinker with it in a contained box. But for local development and GitHub Actions workflows, sticking to native `uv` is the recommended path.
 

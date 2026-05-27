@@ -54,7 +54,7 @@ class GoogleSpider(BaseSpider):
         """Fetch raw job data from Google Careers batchexecute.
 
         Args:
-            ctx: The fetch context containing HTTP and browser clients.
+            ctx: The fetch context containing shared clients.
             search: Standard search criteria.
 
         Returns:
