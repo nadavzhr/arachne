@@ -29,6 +29,28 @@ app = typer.Typer(
 console = Console()
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind the UI server to."),
+    ui_port: int = typer.Option(5173, "--ui-port", "-u", help="Port for the Vite dev server."),
+) -> None:
+    """Start the Arachne UI dev server."""
+    import subprocess
+
+    console.print("[bold green]🕷️ Starting Arachne UI...[/bold green]")
+    console.print(f"  UI:  http://{host}:{ui_port}/")
+
+    try:
+        # Start UI server
+        ui_cmd = ["npm", "run", "dev", "--", "--port", str(ui_port), "--host", host]
+        ui_process = subprocess.Popen(ui_cmd, cwd=str(Path("ui").absolute()))
+
+        ui_process.wait()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Shutting down services...[/yellow]")
+        ui_process.terminate()
+
+
 def _bootstrap(
     config_dir: Path, debug: bool = False
 ) -> tuple[GlobalConfig, dict[str, SpiderConfig]]:
