@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 from arachne.models.job import JobPosting
-from arachne.storage.base import JobStorage
+from arachne.storage.db import Database
 
 
 class JobService:
     """Service to handle high-level job data operations."""
 
-    def __init__(self, storage: JobStorage) -> None:
+    def __init__(self, db: Database) -> None:
         """Initialize the job service.
 
         Args:
-            storage: The storage backend used for job persistence.
+            db: The database backend used for job persistence.
         """
-        self.storage = storage
+        self.db = db
 
     def get_jobs_for_spider(self, spider_name: str, category: str = "filtered") -> list[JobPosting]:
         """Retrieve the most recent job postings for a given spider.
@@ -27,7 +27,7 @@ class JobService:
         Returns:
             list[JobPosting]: List of retrieved job postings.
         """
-        return self.storage.load_jobs(spider_name, category=category)
+        return self.db.load_jobs(spider_name, category=category)
 
     def get_all_jobs(self, spider_names: list[str], category: str = "filtered") -> list[JobPosting]:
         """Retrieve the most recent job postings across multiple spiders.

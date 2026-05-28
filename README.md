@@ -76,23 +76,23 @@ uv run arachne profiles
 
 ## 🏗️ Architecture
 
-Arachne is built on a modular "Service-Adapter" architecture:
+Arachne is built on a streamlined architecture:
 
 1.  **CLI/Entrypoint (`cli.py`):** Bootstraps the environment and orchestrates the services.
 2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages the lifecycle of shared HTTP clients.
-3.  **Spider Adapters:** Provider-specific modules that receive a `FetchContext` to handle the "Fetch" phase and subsequently "Normalize" data.
-4.  **Filter Service:** Applies search profiles (keywords, remote status, etc.) to the normalized data.
-5.  **Storage Layer:** Pluggable interface for persisting data (defaults to **SQLite** for deduplication and history).
+3.  **Spider Adapters (`BaseSpider`):** Provider-specific modules that execute a unified pipeline (`run`): fetching raw data, normalizing it into a strict `JobPosting` Pydantic model, deduplicating, and applying profile filters.
+4.  **Storage Layer (`Database`):** A concrete SQLite implementation used for deduplication, history tracking, and serving data to the upcoming API layer.
 
 ```mermaid
 graph TD
     CLI[CLI / API] --> Scraper[Scraper Service]
     Scraper --> ClientMgr[HTTP Client Manager]
     ClientMgr --> FetchCtx[FetchContext]
-    FetchCtx --> Spider[Spider Adapters]
-    Spider --> Normalize[Normalize: Pydantic]
-    Normalize --> Filter[Filter Service]
-    Filter --> Storage[Storage Layer: SQLite]
+    FetchCtx --> Spider[Spider Pipeline]
+    Spider --> |Fetch| Raw[Raw Data]
+    Raw --> |Normalize| Jobs[Job Postings]
+    Jobs --> |Filter & Dedupe| CleanJobs[Filtered Jobs]
+    CleanJobs --> DB[SQLite Database]
 ```
 
 ---
@@ -159,7 +159,6 @@ To add a new company:
 
 - [ ] **API Layer:** FastAPI-based backend to expose scraping triggers and data.
 - [ ] **Web UI:** Interactive dashboard for viewing jobs and managing profiles.
-- [x] **Persistent Database:** Transition from JSON snapshots to a relational database (SQLite).
 
 ---
 

@@ -11,9 +11,9 @@ from arachne.clients.base import FetchContext
 from arachne.clients.http import ThrottledClient
 from arachne.config.loader import SpiderConfig
 from arachne.config.profile import SearchProfile
-from arachne.services import search as search_service
 from arachne.spiders import get_spider_class
-from arachne.storage.base import JobStorage
+from arachne.spiders.base import SpiderResult
+from arachne.storage.db import Database
 
 logger = logging.getLogger(__name__)
 
@@ -27,27 +27,33 @@ class ScraperService:
 
     def __init__(
         self,
-        storage: JobStorage,
+        db: Database,
         client: httpx.AsyncClient | ThrottledClient,
         concurrency: int = 1,
+        debug: bool = False,
+        data_dir: str | None = None,
     ) -> None:
         """Initialize the scraper service.
 
         Args:
-            storage: The storage backend to persist results.
+            db: The database to persist results.
             client: The HTTP client to use for requests.
             concurrency: Maximum number of spiders to run in parallel.
+            debug: Whether debug mode is enabled.
+            data_dir: Data directory path.
         """
-        self.storage = storage
+        self.db = db
         self.client = client
         self.semaphore = asyncio.Semaphore(max(1, concurrency))
+        self.debug = debug
+        self.data_dir = data_dir
 
     async def run_spider(
         self,
         name: str,
         cfg: SpiderConfig,
         profile: SearchProfile,
-    ) -> search_service.SearchResult:
+    ) -> SpiderResult:
         """Execute search for a single spider and persist results.
 
         Args:
@@ -56,30 +62,22 @@ class ScraperService:
             profile: The search profile containing criteria and filters.
 
         Returns:
-            search_service.SearchResult: The result of the search,
-                including raw and normalized data.
+            SpiderResult: The result of the search.
         """
         SpiderCls = get_spider_class(name)
         spider = SpiderCls(cfg)
 
-        ctx = FetchContext(http=self.client)
+        import pathlib
+
+        data_path = pathlib.Path(self.data_dir) if self.data_dir else None
+        ctx = FetchContext(http=self.client, debug=self.debug, data_dir=data_path)
 
         async with self.semaphore:
-            spider.log.info("fetch started")
-            try:
-                result = await search_service.execute_search(
-                    spider=spider,
-                    ctx=ctx,
-                    search=profile.get_search_for(name),
-                    filters=profile.get_filters_for(name),
-                )
-            finally:
-                spider.log.info("fetch finished")
+            result = await spider.run(ctx, profile)
 
             # Persist results
-            self.storage.save_raw(name, result.raw)
-            self.storage.save_jobs(name, result.normalized, category="unfiltered")
-            self.storage.save_jobs(name, result.filtered)
+            self.db.save_jobs(name, result.normalized, category="unfiltered")
+            self.db.save_jobs(name, result.filtered)
 
             return result
 
@@ -87,7 +85,7 @@ class ScraperService:
         self,
         spiders_config: dict[str, SpiderConfig],
         profile: SearchProfile,
-    ) -> dict[str, search_service.SearchResult | BaseException]:
+    ) -> dict[str, SpiderResult | BaseException]:
         """Run scraping for all enabled spiders in a profile.
 
         Args:
@@ -95,10 +93,10 @@ class ScraperService:
             profile: The search profile to execute.
 
         Returns:
-            dict[str, search_service.SearchResult | BaseException]: A mapping of spider names
+            dict[str, SpiderResult | BaseException]: A mapping of spider names
                 to their search results or any exceptions encountered.
         """
-        tasks: dict[str, asyncio.Task[search_service.SearchResult]] = {}
+        tasks: dict[str, asyncio.Task[SpiderResult]] = {}
 
         for name, cfg in spiders_config.items():
             if not cfg.enabled:
@@ -110,7 +108,7 @@ class ScraperService:
 
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
-        final_results: dict[str, search_service.SearchResult | BaseException] = {}
+        final_results: dict[str, SpiderResult | BaseException] = {}
         for name, result in zip(tasks.keys(), results, strict=True):
             final_results[name] = result
 

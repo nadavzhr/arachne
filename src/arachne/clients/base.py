@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 
@@ -13,7 +14,9 @@ from arachne.clients.http import ThrottledClient
 class FetchContext:
     """Context provided to spiders during the fetch phase.
 
-    Contains shared clients for HTTP scraping.
+    Contains shared clients for HTTP scraping and debug state.
     """
 
     http: httpx.AsyncClient | ThrottledClient
+    debug: bool = False
+    data_dir: Path | None = None

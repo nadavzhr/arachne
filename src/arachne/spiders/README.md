@@ -11,27 +11,30 @@ Create a new package under `src/arachne/spiders/`.
 ```text
 src/arachne/spiders/new_company/
 ├── __init__.py
-├── params.py   # Optional: Logic for building API query params
+├── params.py   # Optional: Logic for building API query params safely (Pydantic)
 └── spider.py   # The adapter implementation
 ```
 
 ### 2. Implement the `Spider` Class
-In `spider.py`, inherit from `arachne.spiders.base.Spider` and implement the abstract methods:
+In `spider.py`, inherit from `arachne.spiders.base.Spider` and implement the abstract methods `fetch` and `normalize`. The base class handles the overarching `run` pipeline (fetching, saving debug JSON, normalizing, deduplicating, and applying profile filters).
 
 ```python
 from arachne.spiders.base import Spider as BaseSpider
 from arachne.models.job import JobPosting
+from arachne.clients.base import FetchContext
+from arachne.models.schema import JobSearchCriteria
+from typing import Any
 
 class NewCompanySpider(BaseSpider):
-    async def fetch(self, ctx, search):
-        # 1. Map 'search' criteria to API params
+    async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> Any:
+        # 1. Map 'search' criteria to API params (use params.py if complex)
         # 2. Make the HTTP call using 'ctx.http'
         # 3. Return the raw payload (usually a dict or list)
         pass
 
-    def normalize(self, raw):
+    def normalize(self, raw: Any) -> list[JobPosting]:
         # 1. Iterate through the raw items
-        # 2. Map fields to the JobPosting model
+        # 2. Map fields to the strict JobPosting model
         # 3. Return a list of JobPosting objects
         pass
 ```
@@ -56,4 +59,5 @@ Arachne uses a dynamic loading mechanism (`src/arachne/spiders/__init__.py`). It
 ## Best Practices
 - **Use `self.log`**: Always use the built-in logger adapter. It ensures your logs are routed to `logs/spiders/<name>.log`.
 - **Be Defensive**: External APIs change. Use `.get()` and try-except blocks during normalization to ensure one bad record doesn't crash the entire scrape.
-- **Isolate Param Logic**: If the API query is complex, move the logic to `params.py`.
+- **Leverage Debug Mode**: The `BaseSpider` automatically dumps the raw payload returned by your `fetch` method into `data/debug/` if the CLI is run with `--debug`. This is invaluable for inspecting API changes.
+- **Isolate Param Logic**: If the API query parameters are complex, use Pydantic models in `params.py` to ensure type safety and catch typos before sending the HTTP request.

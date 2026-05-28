@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 from arachne.models.job import JobPosting
-from arachne.storage.base import JobStorage
 
 
-class SqliteJobStorage(JobStorage):
+class Database:
     """SQLite implementation of job storage.
 
     Uses a relational database to store jobs, enabling historical tracking
@@ -35,14 +32,7 @@ class SqliteJobStorage(JobStorage):
         return conn
 
     def _init_db(self) -> None:
-        """Create the necessary tables if they do not exist.
-
-        SQL Concepts:
-        - CREATE TABLE: Defines the blueprint.
-        - PRIMARY KEY: Unique identifier for each row.
-        - UNIQUE: Ensures no two rows have the same combination of spider + external_id.
-        - DEFAULT CURRENT_TIMESTAMP: Automatically sets the time when a row is created.
-        """
+        """Create the necessary tables if they do not exist."""
         with self._get_connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -64,27 +54,13 @@ class SqliteJobStorage(JobStorage):
                     UNIQUE(spider, external_id)
                 )
             """)
-            # Table for raw payloads to keep them separate from structured data
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS raw_data (
-                    spider TEXT PRIMARY KEY,
-                    payload TEXT,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
 
     def save_jobs(
         self, spider: str, jobs: Sequence[JobPosting], category: str = "filtered"
     ) -> None:
-        """Save job postings using an UPSERT (Update or Insert) strategy.
-
-        SQL Concepts:
-        - INSERT INTO ... ON CONFLICT: This is the "Upsert". It tries to insert,
-          but if it finds a matching (spider, external_id), it updates the existing row.
-        """
+        """Save job postings using an UPSERT (Update or Insert) strategy."""
         with self._get_connection() as conn:
             for job in jobs:
-                # We use '?' placeholders to prevent SQL Injection (Security best practice)
                 conn.execute(
                     """
                     INSERT INTO jobs (
@@ -118,20 +94,6 @@ class SqliteJobStorage(JobStorage):
                     ),
                 )
 
-    def save_raw(self, spider: str, raw_payload: Any) -> None:
-        """Save the raw JSON payload as a string."""
-        with self._get_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO raw_data (spider, payload, updated_at)
-                VALUES (?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(spider) DO UPDATE SET
-                    payload = excluded.payload,
-                    updated_at = CURRENT_TIMESTAMP
-            """,
-                (spider, json.dumps(raw_payload)),
-            )
-
     def load_jobs(self, spider: str, category: str = "filtered") -> list[JobPosting]:
         """Query the database and convert rows back into Pydantic models."""
         with self._get_connection() as conn:
@@ -143,12 +105,9 @@ class SqliteJobStorage(JobStorage):
 
         jobs: list[JobPosting] = []
         for row in rows:
-            # sqlite3.Row acts like a dictionary
             data = dict(row)
-            # Convert SQLite types back to Pydantic-friendly types
             data["url"] = data["url"]
             data["remote"] = bool(data["remote"])
-            # Remove internal DB columns not needed by the model
             data.pop("id")
             data.pop("discovered_at")
             data.pop("last_seen_at")

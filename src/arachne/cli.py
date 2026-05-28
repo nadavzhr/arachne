@@ -19,9 +19,7 @@ from arachne.logging import configure_logging, timestamped_log_name
 from arachne.services.jobs import JobService
 from arachne.services.profiles import ProfileService
 from arachne.services.scraper import ScraperService
-from arachne.storage.base import JobStorage
-from arachne.storage.json import JsonFileJobStorage
-from arachne.storage.sqlite import SqliteJobStorage
+from arachne.storage.db import Database
 
 app = typer.Typer(
     help="Arachne: A job scraping aggregator for tech company listings.",
@@ -126,11 +124,7 @@ def run(
 
     async def _run() -> None:
         data_path = Path(global_cfg.data_dir)
-        storage: JobStorage
-        if global_cfg.storage_type == "sqlite":
-            storage = SqliteJobStorage(data_path / "arachne.db")
-        else:
-            storage = JsonFileJobStorage(data_path)
+        db = Database(data_path / "arachne.db")
 
         try:
             async with create_client(
@@ -139,9 +133,11 @@ def run(
                 request_concurrency=global_cfg.request_concurrency,
             ) as client:
                 scraper = ScraperService(
-                    storage=storage,
+                    db=db,
                     client=client,
                     concurrency=global_cfg.concurrency,
+                    debug=debug,
+                    data_dir=str(data_path),
                 )
 
                 results = await scraper.run_profile(spiders_to_run, prof)
@@ -217,13 +213,8 @@ def jobs(
     global_cfg, _ = load_all(config)
     data_path = Path(global_cfg.data_dir)
 
-    storage: JobStorage
-    if global_cfg.storage_type == "sqlite":
-        storage = SqliteJobStorage(data_path / "arachne.db")
-    else:
-        storage = JsonFileJobStorage(data_path)
-
-    service = JobService(storage)
+    db = Database(data_path / "arachne.db")
+    service = JobService(db)
 
     # If no spider provided, list all spiders defined in config
     _, spiders = load_all(config)
@@ -266,12 +257,8 @@ def export(
     global_cfg, _ = load_all(config)
     data_path = Path(global_cfg.data_dir)
 
-    if global_cfg.storage_type != "sqlite":
-        console.print("[red]Error:[/red] Export only supported for SQLite storage.")
-        raise typer.Exit(1)
-
-    storage = SqliteJobStorage(data_path / "arachne.db")
-    service = JobService(storage)
+    db = Database(data_path / "arachne.db")
+    service = JobService(db)
 
     _, spiders = load_all(config)
     all_jobs = service.get_all_jobs(list(spiders.keys()))

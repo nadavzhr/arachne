@@ -1,35 +1,17 @@
 # Arachne Storage Layer
 
-The storage layer is responsible for persisting job data and raw API responses. It uses an interface-based design to allow for easy swapping of storage backends.
+The storage layer is responsible for persisting job data. 
 
-## The Interface: `JobStorage` (`base.py`)
-Any storage implementation must satisfy the `JobStorage` abstract base class, which defines methods for:
-- `save_jobs`: Persisting a list of `JobPosting` objects.
-- `load_jobs`: Retrieving jobs for a specific spider.
-- `save_raw`: Saving the raw, un-normalized API response for debugging.
+## `Database` (`db.py`)
+The primary storage backend for Arachne. It uses a local SQLite database file (`arachne.db`) located in the `data/` directory. This serves as the single source of truth for the upcoming FastAPI layer and the CLI.
 
-## Implementations
-
-### `SqliteJobStorage` (`sqlite.py`) - **Default**
-The primary storage backend for Arachne. It uses a local SQLite database file (`arachne.db`) located in the `data/` directory.
 - **Deduplication**: Automatically handles job deduplication using a unique constraint on `(spider, external_id)`.
-- **History**: Tracks when a job was first discovered and when it was last seen active.
-- **Performance**: Significantly faster for large datasets than file-based storage.
+- **History**: Tracks when a job was first discovered and when it was last seen active using `discovered_at` and `last_seen_at` timestamps.
+- **Performance**: Significantly faster for large datasets and provides a structured way to query data.
 
-### `JsonFileJobStorage` (`json.py`)
-A legacy/debugging backend that saves data as human-readable JSON files.
-- **Pros**: Zero-config, easy to inspect with a text editor.
-- **Cons**: No deduplication (overwrites files), slow, no historical tracking.
-
-## Configuration
-You can toggle between storage backends in `config/global.yaml`:
-
-```yaml
-storage_type: "sqlite"  # Options: "sqlite", "json"
-data_dir: "data"
-```
+## Raw Data Debugging
+Raw un-normalized API responses are no longer stored in the main database. Instead, when the application is run in `--debug` mode, the `Spider` pipeline intercepts the raw payload during the fetch phase and writes it directly to timestamped JSON files in the `data/debug/` directory. This provides an easy way to inspect provider API changes without bloating the relational database.
 
 ## Database Schema (SQLite)
-The SQLite implementation uses two main tables:
-1.  **`jobs`**: Stores normalized job postings with timestamps for discovery and last confirmation.
-2.  **`raw_data`**: Stores the most recent raw payload from each spider for inspection.
+The SQLite implementation uses a single main table:
+1.  **`jobs`**: Stores normalized job postings with timestamps for discovery, last confirmation, and associated metadata (e.g. `remote`, `employment_type`).

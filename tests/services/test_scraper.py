@@ -1,4 +1,3 @@
-import json
 import pathlib
 from typing import Any
 
@@ -10,7 +9,7 @@ import arachne.models.job
 import arachne.models.schema
 import arachne.services.scraper
 import arachne.spiders.base
-import arachne.storage.json
+import arachne.storage.db
 from arachne.clients.http import create_client
 
 
@@ -81,17 +80,18 @@ async def test_scraper_service_runs_without_crashing(
 ) -> None:
     # Use tmp_path for data so it doesn't pollute real project
     data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
 
     global_cfg, spiders = arachne.config.loader.load_all(temp_config_dir)
 
     monkeypatch.setattr("arachne.services.scraper.get_spider_class", lambda name: DummySpider)
 
-    storage = arachne.storage.json.JsonFileJobStorage(data_dir)
+    db = arachne.storage.db.Database(data_dir / "arachne.db")
     profile = arachne.config.profile.SearchProfile()
 
     async with create_client(global_cfg.timeout_seconds, global_cfg.user_agent) as client:
         scraper = arachne.services.scraper.ScraperService(
-            storage=storage,
+            db=db,
             client=client,
             concurrency=global_cfg.concurrency,
         )
@@ -102,10 +102,7 @@ async def test_scraper_service_runs_without_crashing(
 
     assert data_dir.exists()
 
-    # It should have written the mock jobs to data/mock_spider/jobs.json
-    snapshot_path = data_dir / "mock_spider" / "jobs.json"
-    assert snapshot_path.exists()
-
-    saved_jobs = json.loads(snapshot_path.read_text())
+    # It should have written the mock jobs to db
+    saved_jobs = db.load_jobs("mock_spider")
     assert len(saved_jobs) == 1
-    assert saved_jobs[0]["title"] == "Test Job"
+    assert saved_jobs[0].title == "Test Job"
