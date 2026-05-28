@@ -55,13 +55,24 @@ export const JobsTable = ({
             <th className="col-role py-4 px-4 font-mono text-[11px] uppercase text-arachne-muted font-normal tracking-wider">
               <div className="flex items-center gap-2">
                 <span className="shrink-0">Role:</span>
-                <input
-                  className="font-mono text-[10px] bg-transparent border-0 focus:ring-0 flex-1 min-w-0 placeholder:text-arachne-muted text-arachne-text p-0 focus:outline-none uppercase"
-                  placeholder="[ SEARCH... ]"
-                  type="text"
-                  value={searchRole}
-                  onChange={e => setSearchRole(e.target.value)}
-                />
+                <div className="relative flex-1 min-w-0 flex items-center">
+                  <input
+                    className="font-mono text-[10px] bg-transparent border-0 focus:ring-0 w-full placeholder:text-arachne-muted text-arachne-text p-0 focus:outline-none uppercase pr-6"
+                    placeholder="[ SEARCH... ]"
+                    type="text"
+                    value={searchRole}
+                    onChange={e => setSearchRole(e.target.value)}
+                  />
+                  {searchRole && (
+                    <button
+                      onClick={() => setSearchRole('')}
+                      className="absolute right-0 text-arachne-muted hover:text-primary p-1"
+                      aria-label="Clear search"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </th>
             <th className="col-apply-mobile py-4 px-4 font-mono text-[11px] uppercase text-arachne-muted font-normal tracking-wider text-right align-top"></th>

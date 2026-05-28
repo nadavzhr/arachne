@@ -20,6 +20,7 @@ data/*
 # UI Node deps
 ui/node_modules/
 ui/dist/
+ui/.vite/
 
 tmp/
 .vscode/

@@ -42,8 +42,14 @@ export default function App() {
     };
 
     calculateItemsPerPage();
+    // Re-calculate after a slight delay to allow mobile browser UI to settle
+    const timeoutId = setTimeout(calculateItemsPerPage, 100);
+
     window.addEventListener('resize', calculateItemsPerPage);
-    return () => window.removeEventListener('resize', calculateItemsPerPage);
+    return () => {
+      window.removeEventListener('resize', calculateItemsPerPage);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const uniqueCompanies = useMemo(() => ['All', ...new Set(jobs.map(j => j.company || 'Unknown').filter(Boolean))], [jobs]);
