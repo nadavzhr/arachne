@@ -3,7 +3,7 @@
 The storage layer is responsible for persisting job data. 
 
 ## `Database` (`db.py`)
-The primary storage backend for Arachne. It uses a local SQLite database file (`arachne.db`) located in the `data/` directory. This serves as the single source of truth for the upcoming FastAPI layer and the CLI.
+The primary storage backend for Arachne. It uses a local SQLite database file (`arachne.db`) located in the `data/` directory. This serves as the single source of truth for the CLI and static UI export.
 
 - **Deduplication**: Automatically handles job deduplication using a unique constraint on `(spider, external_id)`.
 - **History**: Tracks when a job was first discovered and when it was last seen active using `discovered_at` and `last_seen_at` timestamps.

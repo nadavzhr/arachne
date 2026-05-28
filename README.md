@@ -22,6 +22,7 @@ This project carries that spirit forward: transforming the complex, messy "threa
 - **Unified Schema:** Normalizes heterogeneous API responses into a strict `JobPosting` Pydantic model.
 - **Profile-Based Filtering:** Decouples search criteria (keywords, location, remote) from provider-specific implementation details.
 - **Deep Observability:** Isolated per-spider logging to debug individual scrapers without noise.
+- **Static UI Export:** Generates a `ui/public/jobs.json` snapshot for a serverless dashboard.
 - **Extensible Architecture:** Simple adapter pattern for adding new job spiders in minutes.
 
 ---
@@ -66,6 +67,18 @@ List a summary of the latest scraped jobs from the CLI:
 uv run arachne jobs
 ```
 
+### Export UI Snapshot
+Write a static `jobs.json` file for the dashboard:
+```bash
+uv run arachne export
+```
+
+### Run UI
+Start the Vite UI dev server:
+```bash
+uv run arachne serve
+```
+
 ### List Profiles
 See all available search configurations:
 ```bash
@@ -81,11 +94,11 @@ Arachne is built on a streamlined architecture:
 1.  **CLI/Entrypoint (`cli.py`):** Bootstraps the environment and orchestrates the services.
 2.  **Scraper Service:** Coordinates the `asyncio` event loop and manages the lifecycle of shared HTTP clients.
 3.  **Spider Adapters (`BaseSpider`):** Provider-specific modules that execute a unified pipeline (`run`): fetching raw data, normalizing it into a strict `JobPosting` Pydantic model, deduplicating, and applying profile filters.
-4.  **Storage Layer (`Database`):** A concrete SQLite implementation used for deduplication, history tracking, and serving data to the upcoming API layer.
+4.  **Storage Layer (`Database`):** A concrete SQLite implementation used for deduplication, history tracking, and exporting static UI snapshots.
 
 ```mermaid
 graph TD
-    CLI[CLI / API] --> Scraper[Scraper Service]
+    CLI[CLI] --> Scraper[Scraper Service]
     Scraper --> ClientMgr[HTTP Client Manager]
     ClientMgr --> FetchCtx[FetchContext]
     FetchCtx --> Spider[Spider Pipeline]
@@ -102,7 +115,7 @@ graph TD
 This project is designed with a **"Git Scraping"** philosophy. 
 
 By default, the scraped job data is persisted in a local SQLite database under `data/arachne.db` and intentionally tracked by version control. This approach is taken to enable:
-- **Serverless Web UI:** The repository acts as a flat-file database, allowing the upcoming GitHub Pages site to display live data without needing an external database like Supabase or PostgreSQL.
+- **Serverless Web UI:** The repository acts as a flat-file database, allowing the GitHub Pages site to display the exported `ui/public/jobs.json` without needing an external database like Supabase or PostgreSQL.
 
 **Note for Forkers/Users:** If you prefer to use Arachne as a pure tool without committing data back to your repo, simply add `data/*.db` to your `.gitignore`. The project remains fully functional for local-only use.
 
@@ -152,13 +165,6 @@ To add a new company:
 4.  Register the spider in `config/spiders.yaml`.
 
 *See [src/arachne/spiders/README.md](src/arachne/spiders/README.md) for a detailed guide.*
-
----
-
-## 🗺️ Roadmap
-
-- [ ] **API Layer:** FastAPI-based backend to expose scraping triggers and data.
-- [ ] **Web UI:** Interactive dashboard for viewing jobs and managing profiles.
 
 ---
 
