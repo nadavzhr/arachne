@@ -24,6 +24,7 @@ class Database:
             db_path: Path to the SQLite database file.
         """
         self.db_path = db_path
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:

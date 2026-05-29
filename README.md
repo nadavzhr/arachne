@@ -76,15 +76,23 @@ List a summary of the latest scraped jobs from the CLI:
 uv run arachne jobs
 ```
 
-### Export UI Snapshot
-Write a static `jobs.json` file for the dashboard:
+### Export UI Snapshot (Local/CI)
+Write a static snapshot directly into `ui/public` (matches the CI workflow):
 ```bash
-uv run arachne export
+uv run arachne export \
+    --output ui/public/jobs.json \
+    --analytics-output ui/public/analytics.json \
+    --config-output ui/public/system_config.json
 ```
 
 ### Run UI
-Start the Vite UI dev server:
+Local dev sequence:
 ```bash
+uv run arachne run
+uv run arachne export \
+    --output ui/public/jobs.json \
+    --analytics-output ui/public/analytics.json \
+    --config-output ui/public/system_config.json
 uv run arachne serve
 ```
 
@@ -119,14 +127,13 @@ graph TD
 
 ---
 
-## 💾 Git Scraping
+## 💾 CI Scrape + Deploy
 
-This project is designed with a **"Git Scraping"** philosophy. 
+This project uses a single CI workflow for serverless hosting.
 
-By default, the scraped job data is persisted in a local SQLite database under `data/arachne.db` and intentionally tracked by version control. This approach is taken to enable:
-- **Serverless Web UI:** The repository acts as a flat-file database, allowing the GitHub Pages site to display the exported `ui/public/jobs.json` without needing an external database like Supabase or PostgreSQL.
+By default, the scraped job data is persisted locally under `data/arachne.db`. The scheduled workflow scrapes, exports JSON into `ui/public`, builds the UI, and deploys to GitHub Pages in one run. This keeps the commit history clean while still publishing a static snapshot. All generated data under `data/` is gitignored.
 
-**Note for Forkers/Users:** If you prefer to use Arachne as a pure tool without committing data back to your repo, simply add `data/*.db` to your `.gitignore`. The project remains fully functional for local-only use.
+**Note for Forkers/Users:** If you prefer local-only use, keep `data/` ignored and run exports manually as needed. The project remains fully functional without committing data.
 
 ---
 

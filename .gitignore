@@ -11,11 +11,13 @@ logs/
 __pycache__/
 *.egg-info/
 
-# Ignore everything in data/ except the DB and README
-data/*
-!data/arachne.db
-!data/README.md
-!data/jobs.json
+# Ignore everything in data
+data/
+
+# UI generated data
+ui/public/jobs.json
+ui/public/analytics.json
+ui/public/system_config.json
 
 # UI Node deps
 ui/node_modules/
