@@ -17,14 +17,20 @@ export const ExportDialog = ({ isOpen, onClose, onExport }: ExportDialogProps) =
       />
       
       <div className="relative bg-arachne-surface border border-arachne-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-arachne-border flex items-center justify-between">
+        {/* Corner Markers */}
+        <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-primary/40 rounded-tl-sm pointer-events-none" />
+        <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-primary/40 rounded-tr-sm pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-primary/40 rounded-bl-sm pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-primary/40 rounded-br-sm pointer-events-none" />
+
+        <div className="p-6 border-b border-arachne-border flex items-center justify-between relative bg-grid bg-[size:20px_20px] bg-opacity-5">
           <div>
             <h3 className="font-display font-bold text-lg uppercase tracking-tight text-arachne-text">Export Intelligence</h3>
             <p className="text-[10px] font-mono text-arachne-muted uppercase tracking-widest">Select Output Protocol</p>
           </div>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-arachne-surface-alt rounded-full transition-colors text-arachne-muted hover:text-arachne-text"
+            className="p-2 hover:bg-arachne-surface-alt rounded-lg transition-colors text-arachne-muted hover:text-primary"
           >
             <LuX className="text-xl" />
           </button>
@@ -36,9 +42,10 @@ export const ExportDialog = ({ isOpen, onClose, onExport }: ExportDialogProps) =
               onExport('json');
               onClose();
             }}
-            className="flex flex-col items-center gap-3 p-6 bg-arachne-surface-alt border border-arachne-border rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all group"
+            className="flex flex-col items-center gap-3 p-6 bg-arachne-surface-alt/50 border border-arachne-border rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all group relative overflow-hidden"
           >
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+            <div className="absolute top-0 left-0 w-1 h-full bg-primary/0 group-hover:bg-primary/40 transition-all" />
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
               <LuFileJson className="text-2xl" />
             </div>
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-arachne-muted group-hover:text-primary">JSON</span>
@@ -49,9 +56,10 @@ export const ExportDialog = ({ isOpen, onClose, onExport }: ExportDialogProps) =
               onExport('csv');
               onClose();
             }}
-            className="flex flex-col items-center gap-3 p-6 bg-arachne-surface-alt border border-arachne-border rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all group"
+            className="flex flex-col items-center gap-3 p-6 bg-arachne-surface-alt/50 border border-arachne-border rounded-2xl hover:border-green-500/50 hover:bg-green-500/5 transition-all group relative overflow-hidden"
           >
-            <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
+            <div className="absolute top-0 left-0 w-1 h-full bg-green-500/0 group-hover:bg-green-500/40 transition-all" />
+            <div className="h-12 w-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
               <LuFileSpreadsheet className="text-2xl" />
             </div>
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-arachne-muted group-hover:text-green-500">CSV</span>
@@ -61,9 +69,9 @@ export const ExportDialog = ({ isOpen, onClose, onExport }: ExportDialogProps) =
         <div className="px-6 py-4 bg-arachne-surface-alt border-t border-arachne-border flex justify-end">
           <button 
             onClick={onClose}
-            className="text-[11px] font-mono uppercase tracking-widest text-arachne-muted hover:text-arachne-text transition-colors"
+            className="px-4 py-2 border border-arachne-border rounded-lg text-[11px] font-mono uppercase tracking-widest text-arachne-muted hover:text-arachne-text hover:bg-arachne-surface transition-colors"
           >
-            Cancel
+            Abort_Mission
           </button>
         </div>
       </div>

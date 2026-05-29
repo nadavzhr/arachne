@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useJobs } from './hooks/useJobs';
 import type { JobPosting } from './types/job';
 import {
@@ -37,7 +38,7 @@ export default function App() {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 11;
+  const itemsPerPage = 12; // Increased slightly for better fit
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -78,7 +79,6 @@ export default function App() {
       mimeType = 'application/json';
       fileName = 'arachne_jobs.json';
     } else {
-      // CSV generation
       const headers = ['spider', 'company', 'title', 'location', 'posted_at', 'url'];
       const rows = filteredJobs.map(job => [
         job.spider,
@@ -112,7 +112,7 @@ export default function App() {
   }, [theme]);
 
   return (
-    <div className="bg-arachne-bg text-arachne-text min-h-screen w-full flex flex-col overflow-hidden bg-grid font-body">
+    <div className="bg-arachne-bg text-arachne-text h-screen w-full flex flex-col overflow-hidden bg-grid font-body">
       <Header 
         theme={theme} 
         setTheme={setTheme} 
@@ -128,38 +128,49 @@ export default function App() {
           onClose={() => setIsSidebarOpen(false)}
         />
 
-        <main className="flex-1 overflow-hidden relative z-0 flex flex-col w-full">
-          {activeView === 'jobs' ? (
-            <div className="flex-1 bg-arachne-surface flex flex-col h-full overflow-hidden">
-              <JobsTable 
-                isLoading={isLoading}
-                error={error}
-                paginatedJobs={paginatedJobs}
-                selectedJob={selectedJob}
-                setSelectedJob={setSelectedJob}
-                companyFilter={companyFilter}
-                setCompanyFilter={setCompanyFilter}
-                uniqueCompanies={uniqueCompanies}
-                locationFilter={locationFilter}
-                setLocationFilter={setLocationFilter}
-                uniqueLocations={uniqueLocations}
-                searchRole={searchRole}
-                setSearchRole={setSearchRole}
-              />
+        <main className="flex-1 min-h-0 overflow-hidden relative z-0 flex flex-col w-full bg-arachne-surface">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeView}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="flex-1 flex flex-col min-h-0 h-full"
+            >
+              {activeView === 'jobs' ? (
+                <>
+                  <JobsTable 
+                    isLoading={isLoading}
+                    error={error}
+                    paginatedJobs={paginatedJobs}
+                    selectedJob={selectedJob}
+                    setSelectedJob={setSelectedJob}
+                    companyFilter={companyFilter}
+                    setCompanyFilter={setCompanyFilter}
+                    uniqueCompanies={uniqueCompanies}
+                    locationFilter={locationFilter}
+                    setLocationFilter={setLocationFilter}
+                    uniqueLocations={uniqueLocations}
+                    searchRole={searchRole}
+                    setSearchRole={setSearchRole}
+                  />
 
-              <Pagination 
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                filteredJobsCount={filteredJobs.length}
-              />
-            </div>
-          ) : activeView === 'analytics' ? (
-            <AnalyticsView />
-          ) : (
-            <SystemView />
-          )}
+                  <Pagination 
+                    currentPage={currentPage}
+                    setCurrentPage={setCurrentPage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    filteredJobsCount={filteredJobs.length}
+                  />
+                </>
+              ) : activeView === 'analytics' ? (
+                <AnalyticsView />
+              ) : (
+                <SystemView />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

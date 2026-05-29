@@ -1,6 +1,5 @@
 import React from 'react';
-import { FaGithub } from 'react-icons/fa6';
-import { LuMenu } from "react-icons/lu";
+import { LuGithub, LuMenu, LuSun, LuMoon, LuDownload } from 'react-icons/lu';
 import logo from '../assets/arachne-logo.png';
 
 interface HeaderProps {
@@ -28,31 +27,30 @@ export const Header = ({ theme, setTheme, exportToJson, toggleSidebar }: HeaderP
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <a
           href="https://github.com/nadavzhr/arachne"
           target="_blank"
           rel="noreferrer"
-          className="h-9 border border-arachne-border bg-arachne-surface-alt text-arachne-text px-3 hover:border-primary hover:text-primary transition-colors flex items-center justify-center"
+          className="h-9 w-9 border border-arachne-border bg-arachne-surface-alt text-arachne-text hover:border-primary hover:text-primary transition-colors flex items-center justify-center rounded-lg"
           aria-label="View on GitHub"
         >
-          <FaGithub className="text-lg" />
+          <LuGithub className="text-lg" />
         </a>
         <button
           type="button"
           onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-          className="h-9 border border-arachne-border bg-arachne-surface-alt text-arachne-text px-3 hover:border-primary hover:text-primary transition-colors flex items-center justify-center"
+          className="h-9 w-9 border border-arachne-border bg-arachne-surface-alt text-arachne-text hover:border-primary hover:text-primary transition-colors flex items-center justify-center rounded-lg"
           aria-label="Toggle theme"
         >
-          <span className="material-symbols-outlined text-lg">
-            {theme === 'dark' ? 'light_mode' : 'dark_mode'}
-          </span>
+          {theme === 'dark' ? <LuSun className="text-lg" /> : <LuMoon className="text-lg" />}
         </button>
         <button
           onClick={exportToJson}
-          className="h-9 bg-primary text-white font-medium text-[11px] md:text-[13px] uppercase tracking-wider px-3 md:px-4 hover:brightness-110 transition-all border border-primary flex items-center justify-center gap-2"
+          className="h-9 bg-primary text-white font-bold text-[11px] uppercase tracking-widest px-4 hover:brightness-110 transition-all border border-primary flex items-center justify-center gap-2 rounded-lg ml-2"
         >
-          <span className="font-mono text-xs hidden sm:inline">[↓]</span> Export
+          <LuDownload className="text-sm" />
+          <span className="hidden sm:inline">Export</span>
         </button>
       </div>
     </header>

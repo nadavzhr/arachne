@@ -18,6 +18,9 @@ export default {
       },
     },
     extend: {
+      screens: {
+        "xs": "420px",
+      },
       colors: {
         "primary": "rgb(var(--arachne-primary) / <alpha-value>)",
         "arachne-bg": "rgb(var(--arachne-bg) / <alpha-value>)",
@@ -40,12 +43,11 @@ export default {
         "mono": ["Geist Mono", "monospace"]
       },
       borderRadius: {
-        "DEFAULT": "0px",
-        "sm": "0px",
-        "md": "0px",
-        "lg": "0px",
-        "xl": "0px",
-        "full": "0px"
+        "sm": "4px",
+        "md": "8px",
+        "lg": "12px",
+        "xl": "16px",
+        "2xl": "24px",
       },
     },
   },
