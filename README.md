@@ -1,5 +1,14 @@
 # 🕷️ Arachne
 
+> [!WARNING]
+> **PERSONAL USE ONLY & SERVERLESS DASHBOARD**
+>
+> This dashboard is designed for personal use only. It is **SERVERLESS**, meaning the results displayed are **STATIC** snapshots of the job market.
+>
+> - **Refresh Frequency:** Data is updated once every **24 hours** via an automated GitHub Actions cron job.
+> - **No Dynamic Queries:** You cannot perform real-time database queries or update configurations/profiles through this UI to obtain fresh results.
+> - **Static Data:** The results you see represent the state of the job boards at the time of the last scheduled scrape.
+
 > *"A weaver so skilled, she challenged the gods themselves. Now, she weaves the scattered threads of the tech job market into a single, unbreakable web."*
 
 **Arachne** is a high-performance, asynchronous job scraping aggregator designed for tracking listings across major tech companies. It fetches, normalizes, and filters job postings from multiple provider APIs concurrently, providing a unified view of the tech job market.
