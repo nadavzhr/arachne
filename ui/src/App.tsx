@@ -39,11 +39,16 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 11;
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchRole, companyFilter, locationFilter]);
+
   const uniqueCompanies = useMemo(() => ['All', ...new Set(jobs.map(j => j.company || 'Unknown').filter(Boolean))], [jobs]);
   const uniqueLocations = useMemo(() => {
     const locations = jobs.map(j => {
       if (!j.location) return 'N/A';
-      return j.location.split(',')[0].trim(); // Get city/top level
+      return j.location.split(',')[0].trim();
     });
     return ['All', ...new Set(locations)];
   }, [jobs]);
@@ -52,7 +57,10 @@ export default function App() {
     return jobs.filter(job => {
       const matchesRole = job.title.toLowerCase().includes(searchRole.toLowerCase());
       const matchesCompany = companyFilter === 'All' || job.company === companyFilter;
-      const matchesLocation = locationFilter === 'All' || (job.location?.includes(locationFilter));
+      
+      const jobLocation = job.location ? job.location.split(',')[0].trim() : 'N/A';
+      const matchesLocation = locationFilter === 'All' || jobLocation === locationFilter;
+      
       return matchesRole && matchesCompany && matchesLocation;
     });
   }, [jobs, searchRole, companyFilter, locationFilter]);
