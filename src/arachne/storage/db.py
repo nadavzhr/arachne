@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from arachne.models.job import JobPosting
 
@@ -54,6 +55,43 @@ class Database:
                     UNIQUE(spider, external_id)
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS spider_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    spider TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    found_count INTEGER DEFAULT 0,
+                    filtered_count INTEGER DEFAULT 0,
+                    error_message TEXT,
+                    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+    def log_spider_run(
+        self,
+        spider: str,
+        status: str,
+        found_count: int = 0,
+        filtered_count: int = 0,
+        error_message: str | None = None,
+    ) -> None:
+        """Record a spider execution in the database."""
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO spider_runs (spider, status, found_count, filtered_count, error_message)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (spider, status, found_count, filtered_count, error_message),
+            )
+
+    def get_latest_spider_runs(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Retrieve the most recent spider execution records."""
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM spider_runs ORDER BY executed_at DESC LIMIT ?", (limit,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def save_jobs(
         self, spider: str, jobs: Sequence[JobPosting], category: str = "filtered"

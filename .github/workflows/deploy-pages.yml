@@ -6,7 +6,11 @@ on:
     paths:
       - 'ui/**'
       - '.github/workflows/deploy-pages.yml'
-      - 'data/jobs.json' # Re-deploy if the scraper updates the data directly
+      - 'data/*.json'
+  workflow_run:
+    workflows: ["Scrape Jobs Daily"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -20,6 +24,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

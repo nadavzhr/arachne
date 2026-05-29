@@ -73,13 +73,37 @@ class ScraperService:
         ctx = FetchContext(http=self.client, debug=self.debug, data_dir=data_path)
 
         async with self.semaphore:
-            result = await spider.run(ctx, profile)
+            try:
+                result = await spider.run(ctx, profile)
 
-            # Persist results
-            self.db.save_jobs(name, result.normalized, category="unfiltered")
-            self.db.save_jobs(name, result.filtered)
+                # Persist results
+                self.db.save_jobs(name, result.normalized, category="unfiltered")
+                self.db.save_jobs(name, result.filtered)
 
-            return result
+                # Log run stats
+                status = "success"
+                error_msg = None
+                if result.normalization_error:
+                    status = "partial_failure"
+                    error_msg = f"Normalization error: {result.normalization_error}"
+
+                self.db.log_spider_run(
+                    spider=name,
+                    status=status,
+                    found_count=len(result.normalized),
+                    filtered_count=len(result.filtered),
+                    error_message=error_msg,
+                )
+
+                return result
+            except Exception as exc:
+                logger.error(f"Spider '{name}' failed: {exc}")
+                self.db.log_spider_run(
+                    spider=name,
+                    status="failed",
+                    error_message=str(exc),
+                )
+                raise
 
     async def run_profile(
         self,

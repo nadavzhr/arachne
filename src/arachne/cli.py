@@ -15,6 +15,7 @@ from rich.table import Table
 
 from arachne.clients.http import create_client
 from arachne.config.loader import GlobalConfig, SpiderConfig, load_all
+from arachne.config.profile import SearchProfile
 from arachne.logging import configure_logging, timestamped_log_name
 from arachne.services.jobs import JobService
 from arachne.services.profiles import ProfileService
@@ -80,6 +81,48 @@ def _bootstrap(
     return global_cfg, spiders
 
 
+def _do_export(
+    prof: SearchProfile,
+    global_cfg: GlobalConfig,
+    all_spiders: dict[str, SpiderConfig],
+    output: Path,
+    analytics_output: Path,
+    config_output: Path,
+) -> None:
+    """Internal helper to execute the export logic."""
+    data_path = Path(global_cfg.data_dir)
+    db = Database(data_path / "arachne.db")
+    service = JobService(db)
+
+    spider_names = list(all_spiders.keys())
+    all_jobs = service.get_all_jobs(spider_names)
+
+    # 1. Export Jobs
+    if not all_jobs:
+        console.print("[yellow]No jobs found to export.[/yellow]")
+    else:
+        data = [job.model_dump(mode="json") for job in all_jobs]
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        console.print(f"[green]Successfully exported {len(data)} jobs to {output}[/green]")
+
+    # 2. Export Analytics
+    analytics = service.get_analytics(spider_names)
+    analytics_output.parent.mkdir(parents=True, exist_ok=True)
+    analytics_output.write_text(json.dumps(analytics, indent=2), encoding="utf-8")
+    console.print(f"[green]Successfully exported analytics to {analytics_output}[/green]")
+
+    # 3. Export System Config
+    system_config = {
+        "engine": global_cfg.model_dump(mode="json"),
+        "profile": prof.model_dump(mode="json"),
+        "spiders": {name: cfg.model_dump(mode="json") for name, cfg in all_spiders.items()},
+    }
+    config_output.parent.mkdir(parents=True, exist_ok=True)
+    config_output.write_text(json.dumps(system_config, indent=2), encoding="utf-8")
+    console.print(f"[green]Successfully exported system configuration to {config_output}[/green]")
+
+
 @app.command()
 def run(
     profile: Annotated[
@@ -97,6 +140,9 @@ def run(
     debug: Annotated[
         bool, typer.Option("--debug", "-d", help="Enable debug logging to console.")
     ] = False,
+    auto_export: Annotated[
+        bool, typer.Option("--export/--no-export", help="Automatically export data after run.")
+    ] = True,
 ) -> None:
     """Execute scraping for a specific profile and optional specific spiders.
 
@@ -162,31 +208,42 @@ def run(
                     data_dir=str(data_path),
                 )
 
-                results = await scraper.run_profile(spiders_to_run, prof)
+                await scraper.run_profile(spiders_to_run, prof)
 
+                # Summary Table
                 table = Table(title=f"Scraping Results: {prof.name}")
                 table.add_column("Spider", style="cyan")
                 table.add_column("Status", style="bold")
                 table.add_column("Found", justify="right")
                 table.add_column("Filtered", justify="right")
 
-                for name, result in results.items():
-                    if isinstance(result, BaseException):
-                        table.add_row(name, "[red]FAILED[/red]", "-", "-")
-                    else:
-                        status = (
-                            "[green]OK[/green]"
-                            if not result.normalization_error
-                            else "[yellow]WARN[/yellow]"
-                        )
-                        table.add_row(
-                            name,
-                            status,
-                            str(len(result.normalized)),
-                            str(len(result.filtered)),
-                        )
+                latest_runs = db.get_latest_spider_runs(limit=len(spiders_to_run))
+                for run_data in reversed(latest_runs):
+                    status = run_data["status"]
+                    status_style = "[green]OK[/green]" if status == "success" else "[red]FAIL[/red]"
+                    if status == "partial_failure":
+                        status_style = "[yellow]WARN[/yellow]"
+
+                    table.add_row(
+                        run_data["spider"],
+                        status_style,
+                        str(run_data["found_count"]),
+                        str(run_data["filtered_count"]),
+                    )
 
                 console.print(table)
+
+                if auto_export:
+                    console.print("\n[bold]🔄 Executing automatic export...[/bold]")
+                    _do_export(
+                        prof=prof,
+                        global_cfg=global_cfg,
+                        all_spiders=all_spiders,
+                        output=data_path / "jobs.json",
+                        analytics_output=data_path / "analytics.json",
+                        config_output=data_path / "system_config.json",
+                    )
+
         except (asyncio.CancelledError, KeyboardInterrupt):
             console.print("\n[yellow]⚠️ Interrupt received. Cleaning up...[/yellow]")
         except Exception as exc:
@@ -197,106 +254,42 @@ def run(
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
-        # Already handled in _run, but caught here to prevent traceback
         pass
 
 
 @app.command()
-def profiles() -> None:
-    """List all available search profiles found in the profiles directory."""
-    profiles_dir = Path("profiles")
-    service = ProfileService(profiles_dir)
-    names = service.list_profiles()
-
-    if not names:
-        console.print("No profiles found in [bold]profiles/[/bold]")
-        return
-
-    table = Table(title="Available Profiles")
-    table.add_column("Name", style="cyan")
-    for name in names:
-        table.add_row(name)
-    console.print(table)
-
-
-@app.command()
-def jobs(
-    spider: Annotated[str | None, typer.Argument(help="Specific spider to list jobs for.")] = None,
-    config: Annotated[
-        Path, typer.Option("--config", "-c", help="Path to config to find data_dir.")
-    ] = Path("config"),
-) -> None:
-    """View a summary table of the latest scraped jobs stored on disk.
-
-    Args:
-        spider: Optional name of a specific spider to filter by.
-        config: Path to the configuration directory to locate the data folder.
-    """
-    global_cfg, _ = load_all(config)
-    data_path = Path(global_cfg.data_dir)
-
-    db = Database(data_path / "arachne.db")
-    service = JobService(db)
-
-    # If no spider provided, list all spiders defined in config
-    _, spiders = load_all(config)
-    spider_names = [spider] if spider else list(spiders.keys())
-
-    all_jobs = service.get_all_jobs(spider_names)
-
-    if not all_jobs:
-        console.print("[yellow]No jobs found in storage.[/yellow]")
-        return
-
-    table = Table(title=f"Latest Jobs ({len(all_jobs)})")
-    table.add_column("Spider", style="dim")
-    table.add_column("Company", style="green")
-    table.add_column("Title", style="bold")
-    table.add_column("Location")
-    table.add_column("URL", justify="center")
-
-    for job in all_jobs[:20]:  # Limit to 20 for brevity
-        # Create a terminal hyperlink if the terminal supports it
-        link = f"[link={job.url}][blue]Open[/blue][/link]"
-        table.add_row(job.spider, job.company or "-", job.title, job.location or "-", link)
-
-    if len(all_jobs) > 20:
-        table.add_row("...", "...", f"and {len(all_jobs) - 20} more", "...", "...")
-
-    console.print(table)
-
-
-@app.command()
 def export(
+    profile: Annotated[
+        str, typer.Option("--profile", "-p", help="The name of the search profile to export.")
+    ] = "default",
     output: Annotated[
-        Path, typer.Option("--output", "-o", help="Path to write the JSON file.")
-    ] = Path("ui/public/jobs.json"),
+        Path, typer.Option("--output", "-o", help="Path to write the jobs JSON file.")
+    ] = Path("data/jobs.json"),
+    analytics_output: Annotated[
+        Path,
+        typer.Option("--analytics-output", "-a", help="Path to write the analytics JSON file."),
+    ] = Path("data/analytics.json"),
+    config_output: Annotated[
+        Path,
+        typer.Option("--config-output", "-k", help="Path to write the system config JSON file."),
+    ] = Path("data/system_config.json"),
     config: Annotated[
         Path, typer.Option("--config", "-c", help="Path to the configuration directory.")
     ] = Path("config"),
 ) -> None:
-    """Export all jobs from SQLite to a JSON file for the web UI."""
-    global_cfg, _ = load_all(config)
-    data_path = Path(global_cfg.data_dir)
+    """Export all jobs, analytics, and system configuration from SQLite to JSON files."""
+    global_cfg, all_spiders = load_all(config)
 
-    db = Database(data_path / "arachne.db")
-    service = JobService(db)
+    profiles_dir = Path("profiles")
+    profile_service = ProfileService(profiles_dir)
 
-    _, spiders = load_all(config)
-    all_jobs = service.get_all_jobs(list(spiders.keys()))
+    try:
+        prof = profile_service.get_profile(profile)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(code=1) from None
 
-    if not all_jobs:
-        console.print("[yellow]No jobs found to export.[/yellow]")
-        return
-
-    # Convert Pydantic models to dictionaries
-    data = [job.model_dump(mode="json") for job in all_jobs]
-
-    # Ensure output directory exists
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-    console.print(f"[green]Successfully exported {len(data)} jobs to {output}[/green]")
+    _do_export(prof, global_cfg, all_spiders, output, analytics_output, config_output)
 
 
 if __name__ == "__main__":

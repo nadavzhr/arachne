@@ -42,22 +42,19 @@ def _default_experience_levels() -> list[ExperienceLevel]:
     return [ExperienceLevel.ENTRY]
 
 
-class Filters(BaseModel):
-    """Post-normalization filters that operate on the shared job schema."""
+class KeywordFilter(BaseModel):
+    """Filter for a specific text field using include/exclude lists."""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     include_keywords: list[str] = Field(
-        default_factory=list, description="Keywords that must be present in the job title"
+        default_factory=list, description="Keywords that must be present (case-insensitive)"
     )
     exclude_keywords: list[str] = Field(
-        default_factory=list, description="Keywords that must not be present in the job title"
-    )
-    locations: list[str] = Field(
-        default_factory=list, description="Preferred job locations (e.g., 'London', 'Remote')"
+        default_factory=list, description="Keywords that must NOT be present (case-insensitive)"
     )
 
-    @field_validator("include_keywords", "exclude_keywords", "locations")
+    @field_validator("include_keywords", "exclude_keywords")
     @classmethod
     def _drop_empty_values(cls, values: list[str]) -> list[str]:
         """Remove empty strings from the list of filter values.
@@ -69,6 +66,25 @@ class Filters(BaseModel):
             list[str]: Filtered list containing only non-empty strings.
         """
         return [value for value in values if value]
+
+
+class Filters(BaseModel):
+    """Post-normalization filters that operate on the shared job schema."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: KeywordFilter = Field(
+        default_factory=KeywordFilter, description="Filters for the job title"
+    )
+    location: KeywordFilter = Field(
+        default_factory=KeywordFilter, description="Filters for the job location"
+    )
+    company: KeywordFilter = Field(
+        default_factory=KeywordFilter, description="Filters for the hiring company"
+    )
+    description: KeywordFilter = Field(
+        default_factory=KeywordFilter, description="Filters for the job description"
+    )
 
 
 class JobSearchCriteria(BaseModel):

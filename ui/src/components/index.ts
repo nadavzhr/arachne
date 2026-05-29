@@ -3,3 +3,7 @@ export * from './Header';
 export * from './JobsTable';
 export * from './Pagination';
 export * from './PayloadDrawer';
+export * from './Sidebar';
+export * from './AnalyticsView';
+export * from './SystemView';
+export * from './ExportDialog';

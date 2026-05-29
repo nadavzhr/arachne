@@ -15,7 +15,7 @@ from arachne.config.loader import SpiderConfig
 from arachne.config.profile import SearchProfile
 from arachne.logging import spider_logger
 from arachne.models.job import JobPosting
-from arachne.models.schema import Filters, JobSearchCriteria
+from arachne.models.schema import Filters, JobSearchCriteria, KeywordFilter
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -132,32 +132,53 @@ class Spider(ABC):
         if filters is None:
             return list(jobs)
 
-        include_keywords = _normalize_keywords(filters.include_keywords)
-        exclude_keywords = _normalize_keywords(filters.exclude_keywords)
-        location_keywords = _normalize_keywords(filters.locations)
-
         filtered: list[JobPosting] = []
         for job in jobs:
-            text_parts = [job.title]
-            if job.description:
-                text_parts.append(job.description)
-            text_tokens = _tokenize(" ".join(text_parts))
-
-            if include_keywords and not _matches_any(include_keywords, text_tokens):
-                continue
-            if exclude_keywords and _matches_any(exclude_keywords, text_tokens):
+            # Title Check
+            if not self._check_keywords(job.title, filters.title):
                 continue
 
-            if location_keywords:
-                if not job.location:
-                    continue
-                location_tokens = _tokenize(job.location)
-                if not _matches_any(location_keywords, location_tokens):
-                    continue
+            # Location Check
+            if not self._check_keywords(job.location, filters.location):
+                continue
+
+            # Company Check
+            if not self._check_keywords(job.company, filters.company):
+                continue
+
+            # Description Check
+            if not self._check_keywords(job.description, filters.description):
+                continue
 
             filtered.append(job)
 
         return filtered
+
+    def _check_keywords(self, text: str | None, kw_filter: KeywordFilter) -> bool:
+        """Check if a text field matches the given include/exclude keywords.
+
+        Args:
+            text: The text to check (can be None).
+            kw_filter: The KeywordFilter containing include/exclude lists.
+
+        Returns:
+            bool: True if the text passes the filter, False otherwise.
+        """
+        if not text:
+            # If field is empty, it only passes if no inclusion keywords are required
+            return not kw_filter.include_keywords
+
+        tokens = _tokenize(text)
+
+        # Must match at least one include keyword if any are specified
+        if kw_filter.include_keywords and not _matches_any(kw_filter.include_keywords, tokens):
+            return False
+
+        # Must NOT match any exclude keywords
+        if kw_filter.exclude_keywords and _matches_any(kw_filter.exclude_keywords, tokens):
+            return False
+
+        return True
 
     @abstractmethod
     async def fetch(self, ctx: FetchContext, search: JobSearchCriteria) -> Any:

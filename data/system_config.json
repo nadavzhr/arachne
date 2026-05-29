@@ -1,0 +1,154 @@
+{
+  "engine": {
+    "data_dir": "data",
+    "timeout_seconds": 30.0,
+    "concurrency": 5,
+    "request_concurrency": 10,
+    "user_agent": "arachne/0.1.0",
+    "logging": {
+      "enabled": true,
+      "directory": "logs",
+      "level": "INFO",
+      "central_file": "arachne.log",
+      "spider_directory": "spiders"
+    }
+  },
+  "profile": {
+    "name": "default",
+    "search": {
+      "title": "software engineer",
+      "locations": [
+        "Israel"
+      ],
+      "remote": false,
+      "employment_types": [
+        "full_time"
+      ],
+      "experience_levels": [
+        "entry"
+      ]
+    },
+    "filters": {
+      "title": {
+        "include_keywords": [
+          "software",
+          "software engineer",
+          "sw",
+          "swe",
+          "developer",
+          "programmer"
+        ],
+        "exclude_keywords": [
+          "intern",
+          "contract",
+          "student",
+          "senior",
+          "manager",
+          "director",
+          "vp",
+          "principal",
+          "staff",
+          "lead"
+        ]
+      },
+      "location": {
+        "include_keywords": [
+          "Israel",
+          "Haifa",
+          "Tel Aviv",
+          "Herzliya",
+          "Ramat Gan",
+          "Tel Aviv-Yafo",
+          "Yokne'am Illit"
+        ],
+        "exclude_keywords": []
+      },
+      "company": {
+        "include_keywords": [],
+        "exclude_keywords": []
+      },
+      "description": {
+        "include_keywords": [],
+        "exclude_keywords": []
+      }
+    },
+    "spiders": {
+      "microsoft": {
+        "search": {
+          "title": "software engineer",
+          "locations": [],
+          "remote": true,
+          "employment_types": [
+            "full_time"
+          ],
+          "experience_levels": [
+            "entry",
+            "mid",
+            "senior"
+          ]
+        },
+        "filters": null
+      },
+      "meta": {
+        "search": {
+          "title": "software engineer",
+          "locations": [
+            "Tel Aviv, Israel"
+          ],
+          "remote": true,
+          "employment_types": [
+            "full_time"
+          ],
+          "experience_levels": [
+            "entry"
+          ]
+        },
+        "filters": null
+      }
+    }
+  },
+  "spiders": {
+    "microsoft": {
+      "enabled": true,
+      "name": "microsoft",
+      "url": "https://apply.careers.microsoft.com/api/pcsx/search",
+      "headers": {},
+      "user_agent": "arachne/0.1.0"
+    },
+    "nvidia": {
+      "enabled": true,
+      "name": "nvidia",
+      "url": "https://jobs.nvidia.com/api/pcsx/search",
+      "headers": {},
+      "user_agent": "arachne/0.1.0"
+    },
+    "amazon": {
+      "enabled": true,
+      "name": "amazon",
+      "url": "https://www.amazon.jobs/en/search.json",
+      "headers": {},
+      "user_agent": "arachne/0.1.0"
+    },
+    "apple": {
+      "enabled": true,
+      "name": "apple",
+      "url": "https://jobs.apple.com/en-il/search",
+      "headers": {},
+      "user_agent": "arachne/0.1.0"
+    },
+    "meta": {
+      "enabled": true,
+      "name": "meta",
+      "url": "https://www.metacareers.com/jobs",
+      "headers": {},
+      "user_agent": "arachne/0.1.0"
+    },
+    "google": {
+      "enabled": true,
+      "name": "google",
+      "url": "https://www.google.com/about/careers/applications/_/HiringCportalFrontendUi/data/batchexecute",
+      "headers": {},
+      "user_agent": "arachne/0.1.0"
+    }
+  }
+}
