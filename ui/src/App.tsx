@@ -45,14 +45,25 @@ export default function App() {
     setCurrentPage(1);
   }, [searchRole, companyFilter, locationFilter]);
 
-  const uniqueCompanies = useMemo(() => ['All', ...new Set(jobs.map(j => j.company || 'Unknown').filter(Boolean))], [jobs]);
+  const uniqueCompanies = useMemo(() => {
+    const filteredByLocation = locationFilter === 'All' 
+      ? jobs 
+      : jobs.filter(j => (j.location ? j.location.split(',')[0].trim() : 'N/A') === locationFilter);
+    
+    return ['All', ...new Set(filteredByLocation.map(j => j.company || 'Unknown').filter(Boolean))];
+  }, [jobs, locationFilter]);
+
   const uniqueLocations = useMemo(() => {
-    const locations = jobs.map(j => {
+    const filteredByCompany = companyFilter === 'All'
+      ? jobs
+      : jobs.filter(j => j.company === companyFilter);
+
+    const locations = filteredByCompany.map(j => {
       if (!j.location) return 'N/A';
       return j.location.split(',')[0].trim();
     });
     return ['All', ...new Set(locations)];
-  }, [jobs]);
+  }, [jobs, companyFilter]);
 
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {

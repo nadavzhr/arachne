@@ -3,10 +3,16 @@ import { SiNvidia } from 'react-icons/si';
 
 interface CompanyLogoProps {
   company: string | null;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export const CompanyLogo = ({ company }: CompanyLogoProps) => {
-  const iconClass = 'w-5 h-5 md:w-6 md:h-6 shrink-0';
+export const CompanyLogo = ({ company, size = 'md' }: CompanyLogoProps) => {
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5 md:w-6 md:h-6',
+    lg: 'w-8 h-8 md:w-10 md:h-10',
+  };
+  const iconClass = `${sizeClasses[size]} shrink-0`;
   if (!company) {
     return (
       <div
