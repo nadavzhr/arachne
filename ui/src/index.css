@@ -72,12 +72,12 @@
   }
 
   html, body {
-    height: 100%;
-    overflow: hidden;
+    height: 100dvh;
+    @apply m-0 p-0 overflow-hidden touch-none selection:bg-primary/20;
   }
 
   body {
-    @apply bg-arachne-bg text-arachne-text antialiased font-body m-0 p-0;
+    @apply bg-arachne-bg text-arachne-text antialiased font-body;
   }
 }
 
@@ -96,24 +96,27 @@
   color: rgb(var(--arachne-text));
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgb(var(--arachne-scroll-thumb));
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--arachne-scroll-thumb-hover));
+/* Custom Scrollbar - Only for Fine Pointers */
+@media (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--arachne-scroll-thumb));
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--arachne-scroll-thumb-hover));
+  }
+  
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--arachne-scroll-thumb)) transparent;
+  }
 }
 
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(var(--arachne-scroll-thumb)) transparent;
-}
 

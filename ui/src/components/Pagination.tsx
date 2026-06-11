@@ -20,11 +20,11 @@ export const Pagination = ({
   const endIndex = Math.min(currentPage * itemsPerPage, filteredJobsCount);
 
   return (
-    <div className="h-14 border-t border-arachne-border flex items-center justify-between px-6 md:px-8 bg-arachne-surface shrink-0">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <div className="min-h-[64px] py-2 border-t border-arachne-border flex flex-col sm:flex-row items-center justify-between px-4 md:px-8 bg-arachne-surface shrink-0 gap-3">
+      <div className="flex items-center gap-2">
         <div className="hidden xs:block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-        <span className="font-mono text-[10px] sm:text-xs text-arachne-muted uppercase tracking-wider font-bold whitespace-nowrap">
-          SHOWING <span className="text-arachne-text" style={{ fontVariantNumeric: 'tabular-nums' }}>{startIndex}-{endIndex}</span> OF <span className="text-primary">{filteredJobsCount}</span> RESULTS
+        <span className="font-mono text-[10px] sm:text-xs text-arachne-muted uppercase tracking-wider font-bold">
+          <span className="hidden sm:inline">SHOWING</span> <span className="text-arachne-text" style={{ fontVariantNumeric: 'tabular-nums' }}>{startIndex}-{endIndex}</span> <span className="text-arachne-muted/60">/</span> <span className="text-primary">{filteredJobsCount}</span> <span className="hidden sm:inline">RESULTS</span>
         </span>
       </div>
 
@@ -32,13 +32,13 @@ export const Pagination = ({
         <button
           disabled={currentPage === 1}
           onClick={() => setCurrentPage(prev => prev - 1)}
-          className="h-8 w-8 flex items-center justify-center border border-arachne-border rounded-lg bg-arachne-surface-alt/50 text-arachne-muted hover:text-primary hover:border-primary/40 disabled:opacity-20 disabled:hover:border-arachne-border disabled:hover:text-arachne-muted transition-all"
+          className="h-11 w-11 flex items-center justify-center border border-arachne-border rounded-xl bg-arachne-surface-alt/50 text-arachne-muted active:text-primary active:border-primary disabled:opacity-20 transition-all"
           aria-label="Previous page"
         >
-          <LuChevronLeft className="text-lg" />
+          <LuChevronLeft className="text-xl" />
         </button>
         
-        <div className="px-3 h-8 flex items-center bg-arachne-surface-alt/30 border border-arachne-border rounded-lg font-mono text-xs font-bold text-arachne-text shadow-inner">
+        <div className="px-4 h-11 flex items-center bg-arachne-bg border border-arachne-border rounded-xl font-mono text-xs font-bold text-arachne-text shadow-inner">
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{currentPage}</span>
           <span className="mx-2 text-arachne-muted/40">/</span>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{totalPages || 1}</span>
@@ -47,10 +47,10 @@ export const Pagination = ({
         <button
           disabled={currentPage === totalPages || totalPages === 0}
           onClick={() => setCurrentPage(prev => prev + 1)}
-          className="h-8 w-8 flex items-center justify-center border border-arachne-border rounded-lg bg-arachne-surface-alt/50 text-arachne-muted hover:text-primary hover:border-primary/40 disabled:opacity-20 disabled:hover:border-arachne-border disabled:hover:text-arachne-muted transition-all"
+          className="h-11 w-11 flex items-center justify-center border border-arachne-border rounded-xl bg-arachne-surface-alt/50 text-arachne-muted active:text-primary active:border-primary disabled:opacity-20 transition-all"
           aria-label="Next page"
         >
-          <LuChevronRight className="text-lg" />
+          <LuChevronRight className="text-xl" />
         </button>
       </div>
     </div>

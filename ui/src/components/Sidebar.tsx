@@ -48,19 +48,13 @@ export const Sidebar = ({ activeView, setActiveView, isOpen, onClose }: SidebarP
                   onClose();
                 }}
                 className={`
-                  flex items-center gap-4 p-4 rounded-2xl transition-all group relative overflow-hidden
+                  flex items-center gap-4 p-4 rounded-xl transition-all group relative min-h-[56px]
                   ${isActive 
-                    ? 'bg-primary/10 text-primary border border-primary/20' 
-                    : 'text-arachne-muted hover:bg-arachne-surface-alt hover:text-arachne-text border border-transparent'}
+                    ? 'bg-primary/10 text-primary' 
+                    : 'text-arachne-muted hover:bg-arachne-surface-alt hover:text-arachne-text'}
                 `}
                 title={item.label}
               >
-                {/* Active Signal Stripe */}
-                <div className={`
-                  absolute left-0 top-0 bottom-0 w-[3px] bg-primary transition-transform duration-300 origin-left
-                  ${isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'}
-                `} />
-
                 <Icon className={`text-xl shrink-0 transition-colors ${isActive ? 'text-primary' : 'group-hover:text-primary'}`} />
                 <span className="font-display font-bold text-sm md:hidden lg:block uppercase tracking-wider">
                   {item.label}
@@ -71,17 +65,17 @@ export const Sidebar = ({ activeView, setActiveView, isOpen, onClose }: SidebarP
         </nav>
 
         <div className="p-4 border-t border-arachne-border md:hidden lg:block">
-          <div className="bg-arachne-surface-alt/50 p-5 rounded-2xl border border-arachne-border relative overflow-hidden group">
-            <div className="flex items-center gap-2 mb-3">
-              <LuShieldCheck className="text-primary text-sm animate-pulse" />
+          <div className="bg-arachne-surface-alt/50 p-4 rounded-xl border border-arachne-border relative overflow-hidden group">
+            <div className="flex items-center gap-2 mb-2">
+              <LuShieldCheck className="text-primary text-xs" />
               <span className="text-[10px] font-mono text-arachne-muted uppercase tracking-[0.2em] font-bold">System Status</span>
             </div>
-            <div className="h-1 w-full bg-arachne-bg rounded-full overflow-hidden mb-3">
-              <div className="h-full bg-green-500 w-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
+            <div className="h-1 w-full bg-arachne-bg rounded-full overflow-hidden mb-2">
+              <div className="h-full bg-primary/40 w-full animate-pulse shadow-[0_0_10px_oklch(var(--arachne-primary)/0.2)]" />
             </div>
-            <div className="text-[10px] font-mono text-arachne-muted/80 leading-relaxed uppercase tracking-tighter">
+            <div className="text-[9px] font-mono text-arachne-muted/80 leading-relaxed uppercase tracking-tighter">
               v0.1 // SECURE_FEED<br />
-              ESTABLISHED: <span className="text-green-500 font-bold">OK</span>
+              ESTABLISHED: <span className="text-primary font-bold">OK</span>
             </div>
           </div>
         </div>
